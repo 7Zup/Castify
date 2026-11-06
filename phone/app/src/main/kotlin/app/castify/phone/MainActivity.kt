@@ -34,4 +34,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        // Back from Android's "Install unknown apps" screen: the update goes on by itself.
+        (application as CastifyApp).container.updater.onResume()
+    }
 }

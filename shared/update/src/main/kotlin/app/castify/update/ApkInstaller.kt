@@ -1,7 +1,12 @@
 package app.castify.update
 
 import android.app.PendingIntent
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
+import android.net.Uri
+import android.provider.Settings
+import app.castify.domain.update.AcceptedUpdateStore
+import app.castify.domain.update.AppVersion
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
@@ -28,6 +33,21 @@ import java.util.concurrent.ConcurrentHashMap
 class ApkInstaller(private val context: Context) : UpdateInstaller {
 
     private val apk get() = File(context.cacheDir, "update/castify.apk")
+
+    override fun canInstall(): Boolean = context.packageManager.canRequestPackageInstalls()
+
+    override fun requestInstallPermission(): Boolean {
+        val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Some Android TV builds have no such screen: the install then asks by itself.
+        if (intent.resolveActivity(context.packageManager) == null) return false
+        return try {
+            context.startActivity(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        }
+    }
 
     /** Removes a leftover APK from a previous update (called at launch). */
     fun cleanUp() {
@@ -142,5 +162,20 @@ class InstallResultReceiver : BroadcastReceiver() {
             }
         }
         ApkInstaller.pending[sessionId]?.complete(outcome)
+    }
+}
+
+/** The version the user said `Update` to, in the app's preferences (survives a process death). */
+class PrefsAcceptedUpdateStore(context: Context) : AcceptedUpdateStore {
+    private val prefs = context.getSharedPreferences("update", Context.MODE_PRIVATE)
+
+    override var accepted: AppVersion?
+        get() = AppVersion.parse(prefs.getString(KEY, null))
+        set(value) {
+            prefs.edit().apply { if (value == null) remove(KEY) else putString(KEY, value.toString()) }.apply()
+        }
+
+    private companion object {
+        const val KEY = "accepted_version"
     }
 }

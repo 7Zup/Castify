@@ -12,6 +12,7 @@ import app.castify.tv.data.LanCastReceiver
 import app.castify.tv.data.AndroidNetworkMonitor
 import app.castify.update.ApkInstaller
 import app.castify.update.GitHubReleaseSource
+import app.castify.update.PrefsAcceptedUpdateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,6 +44,7 @@ class TvContainer(app: Application) {
         AppKind.TV,
         GitHubReleaseSource(UPDATE_REPO),
         apkInstaller,
+        PrefsAcceptedUpdateStore(app),
         appScope,
     )
 
