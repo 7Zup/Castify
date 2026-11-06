@@ -16,6 +16,8 @@ class TvActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A launch (not a restore): silent update check, shown on the welcome screen only.
+        if (savedInstanceState == null) container.checkForUpdate()
         setContent { TvScreenContent(viewModel, container.videoSurface) }
     }
 
@@ -28,6 +30,9 @@ class TvActivity : ComponentActivity() {
         viewModel.stop()
         super.onStop()
     }
+
+    /** Back DOWN handled by the view model: its UP must not reach the system either. */
+    private var backDownConsumed = false
 
     /** The Google TV remote has no media keys: D-pad, OK and Back drive everything. */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -42,10 +47,11 @@ class TvActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_BACK -> RemoteKey.BACK
                 else -> null
             }
-            if (key != null && viewModel.onKey(key)) return true
-        } else if (event.action == KeyEvent.ACTION_UP && event.keyCode == KeyEvent.KEYCODE_BACK &&
-            viewModel.state.value.screen != TvScreen.WAITING
-        ) {
+            val consumed = key != null && viewModel.onKey(key)
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) backDownConsumed = consumed
+            if (consumed) return true
+        } else if (event.action == KeyEvent.ACTION_UP && event.keyCode == KeyEvent.KEYCODE_BACK && backDownConsumed) {
+            backDownConsumed = false
             return true // the matching DOWN was consumed
         }
         return super.dispatchKeyEvent(event)

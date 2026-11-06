@@ -32,12 +32,21 @@ import app.castify.phone.data.WifiNetwork
 import app.castify.phone.data.AndroidNetworkMonitor
 import app.castify.phone.data.PrefsLastUrlStore
 import app.castify.phone.data.SniffingWebViewClient
+import app.castify.domain.update.AppKind
+import app.castify.domain.update.AppUpdater
+import app.castify.domain.update.AppVersion
+import app.castify.update.ApkInstaller
+import app.castify.update.GitHubReleaseSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+
+/** The installed `versionName` (gradle.properties `castify.version`). */
+private fun installedVersion(app: Application): AppVersion =
+    AppVersion.parse(app.packageManager.getPackageInfo(app.packageName, 0).versionName) ?: AppVersion(0, 0, 0)
 
 /** Composition root: the only place where adapters are wired to use cases. */
 class CastifyApp : Application() {
@@ -73,6 +82,16 @@ class AppContainer(app: Application) {
             if (tabs.state.value.tabs.size == 1 && tabs.state.value.active.url == null) tabs.onNavigated(last)
             legacy.clear()
         }
+    }
+
+    // In-app update from the public GitHub releases (docs/features/app-update.md).
+    private val apkInstaller = ApkInstaller(app)
+    val updater = AppUpdater(installedVersion(app), AppKind.PHONE, GitHubReleaseSource(UPDATE_REPO), apkInstaller, appScope)
+
+    /** Each launch: silent check (a leftover APK from a previous update is removed first). */
+    fun checkForUpdate() {
+        if (updater.state.value == AppUpdater.State.Idle) apkInstaller.cleanUp()
+        updater.check()
     }
 
     /** Tab grid previews (presentation glue: the UI only sees bitmaps). */
@@ -135,6 +154,7 @@ class AppContainer(app: Application) {
     }
 
     private companion object {
+        const val UPDATE_REPO = "7Zup/Castify"
         val MEDIA_HINT = Regex("""\.(m3u8|mpd|mp4|webm|ts|m4s|aac|vtt|srt|ass|ssa|ttml|dfxp)(\?|$)|/hls/|/dash/|video|stream|subtitle""", RegexOption.IGNORE_CASE)
     }
 }

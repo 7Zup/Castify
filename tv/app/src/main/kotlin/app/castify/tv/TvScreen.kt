@@ -54,6 +54,7 @@ import app.castify.domain.model.PlaybackState
 import app.castify.domain.model.PlaybackStats
 import app.castify.domain.status.PlaybackFailure
 import app.castify.domain.status.TvPresence
+import app.castify.domain.update.AppUpdater
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -75,7 +76,16 @@ fun TvScreenContent(viewModel: TvViewModel, surface: VideoSurface) {
     CastifyTvTheme {
         Box(Modifier.fillMaxSize().background(TvColors.Video)) {
             when (state.screen) {
-                TvScreen.WAITING -> Waiting(state.deviceName, state.presence)
+                TvScreen.WAITING -> {
+                    Waiting(state.deviceName, state.presence)
+                    Text(
+                        state.versionLabel,
+                        color = TvColors.Disabled,
+                        fontSize = 13.sp,
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(horizontal = 28.dp, vertical = 20.dp),
+                    )
+                    if (state.updateDialogVisible) UpdateDialog(state.update, state.updateFocus, state.versionLabel)
+                }
                 TvScreen.PLAYING -> {
                     Video(surface)
                     if (state.stats.state == PlaybackState.BUFFERING) {
@@ -535,3 +545,62 @@ private fun formatTime(ms: Long): String {
     val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
+
+/**
+ * Update dialog over the welcome screen (mockup `docs/mockups/app-update.html`, T1–T3).
+ * Focus = white fill + slight scale, like the error screen buttons.
+ */
+@Composable
+private fun UpdateDialog(update: AppUpdater.State, focus: UpdateButton, current: String) {
+    Box(Modifier.fillMaxSize().background(TvColors.Scrim), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier
+                .widthIn(max = 640.dp)
+                .background(TvColors.Surface, RoundedCornerShape(16.dp))
+                .padding(horizontal = 48.dp, vertical = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            when (update) {
+                is AppUpdater.State.Available -> {
+                    DialogTitle("Update available")
+                    DialogBody("Castify ${update.update.version.label} is ready to install. You have $current.")
+                    Row(Modifier.padding(top = 32.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        ErrorButtonView("Update", focus == UpdateButton.PRIMARY)
+                        ErrorButtonView("Not now", focus == UpdateButton.NOT_NOW)
+                    }
+                }
+                is AppUpdater.State.Downloading -> {
+                    DialogTitle("Downloading ${update.update.version.label}")
+                    val fraction = if (update.totalBytes > 0) (update.downloadedBytes.toFloat() / update.totalBytes).coerceIn(0f, 1f) else 0f
+                    Box(Modifier.padding(top = 28.dp).width(480.dp).height(6.dp).background(TvColors.Disabled, RoundedCornerShape(3.dp))) {
+                        Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(TvColors.Red, RoundedCornerShape(3.dp)))
+                    }
+                    Text(
+                        "%.1f / %.1f MB".format(update.downloadedBytes / 1_000_000.0, update.totalBytes / 1_000_000.0),
+                        color = TvColors.TextSecondary,
+                        fontSize = 15.sp,
+                        modifier = Modifier.padding(top = 10.dp).width(480.dp).wrapContentWidth(Alignment.End),
+                    )
+                    Row(Modifier.padding(top = 24.dp)) { ErrorButtonView("Cancel", focused = true) }
+                }
+                is AppUpdater.State.Failed -> {
+                    DialogTitle("Update failed")
+                    DialogBody("Couldn't download ${update.update.version.label}. Check the Wi-Fi and try again.")
+                    Row(Modifier.padding(top = 32.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        ErrorButtonView("Retry", focus == UpdateButton.PRIMARY)
+                        ErrorButtonView("Not now", focus == UpdateButton.NOT_NOW)
+                    }
+                }
+                AppUpdater.State.Idle, is AppUpdater.State.Installing -> Unit
+            }
+        }
+    }
+}
+
+@Composable
+private fun DialogTitle(text: String) =
+    Text(text, color = TvColors.TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+
+@Composable
+private fun DialogBody(text: String) =
+    Text(text, color = TvColors.TextSecondary, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))

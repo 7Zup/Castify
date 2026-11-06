@@ -4,6 +4,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// One version for both apps (gradle.properties). 0.5.0 -> 500: the code always grows with it.
+val castifyVersion = providers.gradleProperty("castify.version").get()
+val castifyVersionCode = castifyVersion.split(".").map(String::toInt).let { (a, b, c) -> a * 10_000 + b * 100 + c }
+
 android {
     namespace = "app.castify.tv"
     compileSdk = 36
@@ -11,8 +15,8 @@ android {
         applicationId = "app.castify.tv"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = castifyVersionCode
+        versionName = castifyVersion
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -28,6 +32,7 @@ kotlin { jvmToolchain(17) }
 
 dependencies {
     implementation(project(":core:domain"))
+    implementation(project(":shared:update"))
     implementation(project(":tv:data"))
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

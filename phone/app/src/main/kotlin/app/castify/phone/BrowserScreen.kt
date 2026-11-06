@@ -122,6 +122,7 @@ fun BrowserScreen(
     installSniffer: (WebView) -> Unit,
     savePreview: (String, Bitmap) -> Unit,
     loadPreview: (String) -> Bitmap?,
+    version: String,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val videos by viewModel.videos.collectAsStateWithLifecycle()
@@ -232,6 +233,7 @@ fun BrowserScreen(
                     },
                     offline = !online,
                     onRetryNetwork = viewModel::retryNetwork,
+                    version = version,
                 )
             } else {
                 key(activeTab.id) {

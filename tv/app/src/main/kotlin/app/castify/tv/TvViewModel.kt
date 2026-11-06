@@ -18,6 +18,7 @@ import app.castify.domain.port.CastReceiver
 import app.castify.domain.port.Player
 import app.castify.domain.port.NetworkMonitor
 import app.castify.domain.status.TvPresence
+import app.castify.domain.update.AppUpdater
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
@@ -36,6 +37,9 @@ enum class TvScreen { WAITING, PLAYING, ERROR }
 
 /** Buttons of the error screen (mockup T1 / T2): Retry restarts where it stopped, Home stops. */
 enum class ErrorButton { RETRY, HOME }
+
+/** Update dialog buttons (mockup `app-update.html`, T1 / T3): Update or Retry first, then Not now. */
+enum class UpdateButton { PRIMARY, NOT_NOW }
 
 /** Subtitle menu opened from the `CC` button: same options and order as the phone ([SubtitleMenu]). */
 data class SubtitleMenuState(val options: List<SubtitleOption>, val focused: Int)
@@ -75,7 +79,17 @@ data class TvUiState(
     /** Where the video was and which subtitle was on, for Retry. */
     val lastPositionMs: Long = 0,
     val lastSubtitleId: String? = null,
+    /** In-app update, shown on the welcome screen only. */
+    val update: AppUpdater.State = AppUpdater.State.Idle,
+    val updateFocus: UpdateButton = UpdateButton.PRIMARY,
+    /** `v0.5.0`, bottom right of the welcome screen. */
+    val versionLabel: String = "",
 ) {
+    /** Update dialog on screen: welcome screen + something to say (Android's own UI once installing). */
+    val updateDialogVisible: Boolean
+        get() = screen == TvScreen.WAITING &&
+            (update is AppUpdater.State.Available || update is AppUpdater.State.Downloading || update is AppUpdater.State.Failed)
+
     val timeBarVisible: Boolean
         get() = timeBarAfterSeek || (stats.state == PlaybackState.PAUSED && !pausedBarDismissed)
 
@@ -99,17 +113,20 @@ class TvViewModel(
     private val playStream: PlayStream,
     private val handlePlayerCommand: HandlePlayerCommand,
     private val network: NetworkMonitor,
+    private val updater: AppUpdater,
 ) : ViewModel() {
 
     /** Subtitle to turn back on once the retried stream lists its tracks. */
     private var pendingSubtitleId: String? = null
 
-    private val _state = MutableStateFlow(TvUiState())
+    private val _state = MutableStateFlow(TvUiState(versionLabel = updater.currentVersion.label))
     val state: StateFlow<TvUiState> = _state.asStateFlow()
 
     init {
         viewModelScope.launch {
             receiver.playRequests.collect { stream ->
+                // A video wins over the update prompt (the install would stop it): next launch asks again.
+                updater.dismiss()
                 pendingSubtitleId = null
                 _state.update {
                     it.copy(
@@ -170,6 +187,15 @@ class TvViewModel(
                 TvPresence.of(online, lastCall, System.currentTimeMillis())
             }.collect { presence -> _state.update { it.copy(presence = presence) } }
         }
+        // Update dialog: the focus goes back to Update / Retry each time its content changes.
+        viewModelScope.launch {
+            updater.state.collect { update ->
+                _state.update {
+                    val reset = update::class != it.update::class
+                    it.copy(update = update, updateFocus = if (reset) UpdateButton.PRIMARY else it.updateFocus)
+                }
+            }
+        }
         // Retry: turn the subtitle back on once the new stream lists its tracks.
         viewModelScope.launch {
             player.stats.collect { stats ->
@@ -218,7 +244,7 @@ class TvViewModel(
     /** Returns true when the key was consumed. Unhandled keys (Back while waiting) go to the system. */
     fun onKey(key: RemoteKey): Boolean {
         return when (_state.value.screen) {
-            TvScreen.WAITING -> false
+            TvScreen.WAITING -> if (_state.value.updateDialogVisible) onUpdateKey(key) else false
             TvScreen.ERROR -> when (key) {
                 RemoteKey.LEFT -> { _state.update { it.copy(errorFocus = ErrorButton.RETRY) }; true }
                 RemoteKey.RIGHT -> { _state.update { it.copy(errorFocus = ErrorButton.HOME) }; true }
@@ -246,6 +272,23 @@ class TvViewModel(
                 true
             }
         }
+    }
+
+    /**
+     * Update dialog: ◀ ▶ move between Update / Retry and Not now, OK presses, Back = Not now
+     * (or Cancel while downloading, its only button). Every key is swallowed while it shows.
+     */
+    private fun onUpdateKey(key: RemoteKey): Boolean {
+        val s = _state.value
+        val downloading = s.update is AppUpdater.State.Downloading
+        when (key) {
+            RemoteKey.LEFT -> if (!downloading) _state.update { it.copy(updateFocus = UpdateButton.PRIMARY) }
+            RemoteKey.RIGHT -> if (!downloading) _state.update { it.copy(updateFocus = UpdateButton.NOT_NOW) }
+            RemoteKey.OK -> if (downloading || s.updateFocus == UpdateButton.NOT_NOW) updater.dismiss() else updater.accept()
+            RemoteKey.BACK -> updater.dismiss()
+            RemoteKey.UP, RemoteKey.DOWN -> Unit
+        }
+        return true
     }
 
     private var stopConfirmJob: Job? = null
@@ -416,7 +459,7 @@ class TvViewModel(
     companion object {
         fun factory(container: TvContainer): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                TvViewModel(container.receiver, container.player, container.playStream, container.handlePlayerCommand, container.network)
+                TvViewModel(container.receiver, container.player, container.playStream, container.handlePlayerCommand, container.network, container.updater)
             }
         }
     }

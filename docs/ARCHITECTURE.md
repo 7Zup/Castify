@@ -6,12 +6,13 @@ Decisions: ADR 0001 (native Android), ADR 0002 (own TV app instead of a Cast rec
 
 | Module | Kind | Depends on | Contains |
 | --- | --- | --- | --- |
-| `:core:domain` | Pure Kotlin/JVM | coroutines only | Models, `browser/` (tabs, history, favorites), `StreamClassifier`, `VideoCatalog`, `InspectStream` + HLS/DASH parsers + `Mp4Probe` + `QualityLabel`, `subtitles/` (classifier, menu, language names), `TvSession`, `BufferPolicy`, `RemoteControl`, use cases, ports |
+| `:core:domain` | Pure Kotlin/JVM | coroutines only | Models, `browser/` (tabs, history, favorites), `StreamClassifier`, `VideoCatalog`, `InspectStream` + HLS/DASH parsers + `Mp4Probe` + `QualityLabel`, `subtitles/` (classifier, menu, language names), `update/` (`AppVersion`, `AppUpdater`), `TvSession`, `BufferPolicy`, `RemoteControl`, use cases, ports |
 | `:core:protocol` | Pure Kotlin/JVM | `:core:domain`, kotlinx.serialization | `PlayRequest` / `ErrorResponse`, mapping, service type & port |
 | `:phone:data` | Android library | `:core:*` | `SniffingWebViewClient` (+ `BrowserEvents`), `HttpManifestFetcher`, `UdpTvDiscovery`, `NsdTvDiscovery`, `NsdCastDeviceScanner`, `NsdResolver` (shared mDNS resolve queue), `WifiNetwork`, `HttpTvClient`, `BrowserStores` (tabs, history, favorites, previews), `PrefsLastUrlStore` (legacy migration) |
-| `:phone:app` | Android app | `:core:domain`, `:phone:data`, Coil, Media3 session | `AppContainer` (DI), `BrowserViewModel`, `BrowserScreen`, `ui/` (theme, remote, now-playing bar), `RemoteControlService` (media notification) |
+| `:phone:app` | Android app | `:core:domain`, `:phone:data`, `:shared:update`, Coil, Media3 session | `AppContainer` (DI), `BrowserViewModel`, `BrowserScreen`, `ui/` (theme, remote, now-playing bar), `RemoteControlService` (media notification) |
 | `:tv:data` | Android library | `:core:*`, Ktor, Media3 | `LanCastReceiver` (HTTP + NSD), `ExoPlayerAdapter` |
-| `:tv:app` | Android TV app | `:core:domain`, `:tv:data` | `TvContainer` (DI), `TvViewModel`, `TvActivity` (keys), `TvScreen` |
+| `:shared:update` | Android library | `:core:domain` | In-app update: `GitHubReleaseSource`, `ApkInstaller` + `InstallResultReceiver` (docs/features/app-update.md) |
+| `:tv:app` | Android TV app | `:core:domain`, `:tv:data`, `:shared:update` | `TvContainer` (DI), `TvViewModel`, `TvActivity` (keys), `TvScreen` |
 
 ## Ports (in `:core:domain`)
 
@@ -24,6 +25,7 @@ Decisions: ADR 0001 (native Android), ADR 0002 (own TV app instead of a Cast rec
 | `TabStore` / `HistoryStore` / `FavoriteStore` | phone | `PrefsTabStore` / `PrefsHistoryStore` / `PrefsFavoriteStore` |
 | `CastReceiver` | TV | `LanCastReceiver` |
 | `Player` | TV | `ExoPlayerAdapter` |
+| `UpdateSource` / `UpdateInstaller` (in `update/`) | both | `GitHubReleaseSource` / `ApkInstaller` |
 
 ## Data flow
 

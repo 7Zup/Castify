@@ -23,6 +23,15 @@ adb connect <tv-ip>:5555
 env ANDROID_SERIAL=<tv-ip>:5555 ./gradlew :tv:app:installDebug
 ```
 
+## Release
+
+```fish
+scripts/release.fish 0.5.1   # GitHub release with both APKs; the apps offer it at launch
+```
+
+See [`docs/releasing.md`](docs/releasing.md) (when to publish, signing key) and
+[`docs/features/app-update.md`](docs/features/app-update.md).
+
 ## License
 
 Source available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md): free to

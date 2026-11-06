@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – app update and version label</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; } h3 { font-size:15px; color:var(--text2); margin:34px 0 14px; letter-spacing:.5px; }
+  .intro { color:var(--text2); margin:0 0 10px; font-size:14px; max-width:1000px; }
+  .row { display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; }
+  .label { font-size:13px; font-weight:700; margin:0 0 4px; } .label span { color:var(--red); }
+  .sub { color:var(--text2); font-size:12px; margin:0 0 10px; max-width:280px; min-height:32px; }
+
+  /* phone */
+  .phone { width:280px; height:560px; background:var(--bg); border-radius:26px; border:6px solid #2b2b2b; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; }
+  .bar { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:6px 10px 8px; }
+  .ico { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:16px; }
+  .tabs { width:16px; height:16px; border:2px solid var(--text2); border-radius:3px; font-size:8.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .brand { display:flex; flex-direction:column; align-items:center; margin:2px 0 12px; }
+  .word { font-weight:900; font-size:18px; }
+  .search { margin:0 12px; height:42px; border-radius:22px; background:var(--surface); display:flex; align-items:center; padding:0 14px; color:var(--text2); font-size:12px; }
+  .home { padding:4px 14px; }
+  .sec { display:flex; justify-content:space-between; margin:16px 0 8px; font-size:10.5px; color:var(--text2); font-weight:800; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px 4px; }
+  .fav { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:9.5px; }
+  .logo { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; }
+  .item { padding:9px 0; border-bottom:1px solid var(--surface); font-size:11.5px; }
+  .c1 { background:#6a1b9a; } .c2 { background:#00695c; } .c3 { background:#1565c0; }
+  .ver { position:absolute; right:12px; bottom:8px; font-size:10px; color:var(--dis); }
+  .ver.hl { outline:1px dashed var(--red); outline-offset:3px; }
+
+  /* phone dialog */
+  .dim { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; }
+  .dialog { width:236px; background:var(--raised); border-radius:8px; padding:18px 18px 14px; }
+  .dialog .t { font-weight:900; font-size:16px; }
+  .dialog .b { font-size:12px; color:var(--text2); margin-top:8px; line-height:1.45; }
+  .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .btn { background:var(--red); color:#fff; font-weight:800; font-size:12px; border-radius:4px; padding:8px 14px; }
+  .btn.ghost { background:transparent; color:var(--text); border:1px solid #555; }
+  .progress { height:4px; background:#444; border-radius:2px; margin-top:12px; overflow:hidden; } .progress i { display:block; height:100%; width:62%; background:var(--red); }
+  .pct { font-size:10.5px; color:var(--text2); margin-top:6px; text-align:right; }
+
+  /* phone banner */
+  .banner { margin:12px 12px 0; background:var(--surface); border-left:3px solid var(--red); border-radius:4px; padding:9px 10px; font-size:11.5px; }
+  .banner .top { display:flex; justify-content:space-between; align-items:center; }
+  .banner .acts { display:flex; gap:14px; margin-top:8px; justify-content:flex-end; font-size:11.5px; font-weight:800; }
+  .banner .acts .y { color:var(--red); } .banner .acts .n { color:var(--text2); }
+
+  /* system sheet */
+  .sys { position:absolute; left:0; right:0; bottom:0; background:#2f2f2f; border-radius:14px 14px 0 0; padding:16px 18px 18px; font-size:12px; }
+  .sys .t { font-weight:700; font-size:14px; display:flex; gap:8px; align-items:center; }
+  .sys .acts { display:flex; justify-content:flex-end; gap:22px; margin-top:16px; color:#8ab4f8; font-weight:700; }
+
+  /* tv */
+  .tv { width:480px; height:270px; background:#000; border:6px solid #2b2b2b; border-radius:6px; position:relative; overflow:hidden; }
+  .welcome { position:absolute; inset:0; background:var(--bg); display:flex; }
+  .welcome .l { width:45%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .welcome .r { flex:1; display:flex; flex-direction:column; justify-content:center; padding-right:26px; }
+  .pill { margin-top:10px; background:var(--surface); border-radius:30px; padding:5px 12px; font-size:10px; display:flex; gap:8px; align-items:center; }
+  .dot { width:7px; height:7px; border-radius:50%; background:#fff; }
+  .step { display:flex; gap:10px; align-items:center; margin-top:12px; font-size:10.5px; }
+  .num { width:20px; height:20px; border-radius:50%; background:var(--red); font-size:10px; font-weight:900; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .step.ok { color:var(--text2); } .step.ok .num { background:#46D369; color:#000; }
+  .tvver { position:absolute; right:12px; bottom:8px; font-size:9.5px; color:var(--dis); }
+  .tvdim { position:absolute; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; }
+  .tvdialog { width:300px; background:var(--raised); border-radius:8px; padding:18px 20px; text-align:center; }
+  .tvdialog .t { font-weight:900; font-size:17px; } .tvdialog .b { font-size:11px; color:var(--text2); margin-top:6px; line-height:1.4; }
+  .btns { display:flex; gap:10px; margin-top:16px; justify-content:center; }
+  .tvbtn { padding:7px 18px; border-radius:6px; font-size:11.5px; font-weight:800; background:#3a3a3a; color:var(--text2); }
+  .tvbtn.focus { background:#fff; color:#000; outline:2px solid #fff; outline-offset:2px; transform:scale(1.05); }
+  .tvbanner { position:absolute; left:14px; right:14px; top:12px; background:var(--surface); border-left:3px solid var(--red); border-radius:4px; padding:7px 10px; font-size:10.5px; display:flex; align-items:center; justify-content:space-between; }
+  .tvbanner .btns { margin:0; gap:8px; } .tvbanner .tvbtn { padding:4px 12px; font-size:10px; }
+  .note { font-size:11px; color:var(--text2); margin-top:8px; max-width:480px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="cgrad" gradientUnits="userSpaceOnUse" x1="32" y1="54" x2="68" y2="54"><stop offset="0" stop-color="#8E0610"/><stop offset="1" stop-color="#E50914"/></linearGradient>
+  <symbol id="mark" viewBox="26 26 50 56">
+    <path d="M67.5,36.6 A22,22 0 1,0 67.5,71.4" fill="none" stroke="url(#cgrad)" stroke-width="11"/>
+    <path d="M67.5,36.6 A22,22 0 0,0 39.5,41.9" fill="none" stroke="#E50914" stroke-width="11"/>
+    <path d="M47,60 a4,4 0 0,1 4,4 L47,64 z" fill="#fff"/><path d="M47,55 a9,9 0 0,1 9,9" fill="none" stroke="#fff" stroke-width="3"/><path d="M47,50 a14,14 0 0,1 14,14" fill="none" stroke="#fff" stroke-width="3"/>
+  </symbol></defs></svg>
+
+<h1>App update and version label: phone and TV</h1>
+<p class="intro">Silent check at launch against the latest GitHub release. Nothing shows when the app is up to date or the check fails. A dialog at launch (chosen over a banner), then the download, Android's own install confirmation and the failure state. The version sits bottom right of each home screen, in the disabled gray.</p>
+
+<h3>PHONE</h3>
+<div class="row">
+  <div>
+    <div class="label"><span>P0</span> · Home, up to date</div>
+    <div class="sub">Only change: the version, bottom right (dashed outline = mockup highlight only).</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="brand"><svg width="46" height="52"><use href="#mark"/></svg><div class="word">Castify</div></div>
+      <div class="search">🔍 Search or type a website</div>
+      <div class="home">
+        <div class="sec"><span>FAVORITES</span></div>
+        <div class="grid"><div class="fav"><div class="logo c1">T</div>MovieSite</div><div class="fav"><div class="logo c2">1</div>TubeSite</div><div class="fav"><div class="logo c3">V</div>VideoSite</div></div>
+        <div class="sec"><span>RECENT</span></div>
+        <div class="item">tubesite.example/watch/60573/4/7</div>
+        <div class="item">moviesite.example</div>
+      </div>
+      <div class="ver hl">v0.4.0</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label"><span>P1</span> · Update available</div>
+    <div class="sub">Checked at each launch, over the home screen. Not now closes it; asked again at the next launch.</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="brand"><svg width="46" height="52"><use href="#mark"/></svg><div class="word">Castify</div></div>
+      <div class="search">🔍 Search or type a website</div>
+      <div class="ver">v0.4.0</div>
+      <div class="dim"><div class="dialog">
+        <div class="t">Update available</div>
+        <div class="b">Castify v0.5.0 is ready to install. You have v0.4.0.</div>
+        <div class="actions"><span class="btn ghost">Not now</span><span class="btn">Update</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label"><span>P2</span> · Downloading</div>
+    <div class="sub">After Update. Cancel stops the download and closes the dialog.</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="brand"><svg width="46" height="52"><use href="#mark"/></svg><div class="word">Castify</div></div>
+      <div class="ver">v0.4.0</div>
+      <div class="dim"><div class="dialog">
+        <div class="t">Downloading v0.5.0</div>
+        <div class="progress"><i></i></div>
+        <div class="pct">9.3 / 15 MB</div>
+        <div class="actions"><span class="btn ghost">Cancel</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label"><span>P3</span> · Android confirms the install</div>
+    <div class="sub">Android's own sheet, not ours: we can't skip or restyle it on this phone. The app restarts on v0.5.0.</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="brand"><svg width="46" height="52"><use href="#mark"/></svg><div class="word">Castify</div></div>
+      <div class="dim" style="align-items:flex-end"><div class="sys">
+        <div class="t"><svg width="20" height="22"><use href="#mark"/></svg>Castify</div>
+        <div style="margin-top:10px">Do you want to update this app?</div>
+        <div class="acts"><span>Cancel</span><span>Update</span></div>
+      </div></div>
+    </div>
+    <div class="note" style="max-width:280px">First time only, Android first asks to allow “Install unknown apps” for Castify (a switch in a system screen).</div>
+  </div>
+
+  <div>
+    <div class="label"><span>P4</span> · Download failed</div>
+    <div class="sub">Wi-Fi dropped or GitHub unreachable during the download. Retry restarts it.</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>✕ ◢ ▮</span></div>
+      <div class="bar"><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="brand"><svg width="46" height="52"><use href="#mark"/></svg><div class="word">Castify</div></div>
+      <div class="ver">v0.4.0</div>
+      <div class="dim"><div class="dialog">
+        <div class="t">Update failed</div>
+        <div class="b">Couldn't download v0.5.0. Check your connection and try again.</div>
+        <div class="actions"><span class="btn ghost">Not now</span><span class="btn">Retry</span></div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<h3>TV (only on the welcome screen, never during a video)</h3>
+<div class="row">
+  <div>
+    <div class="label"><span>T0</span> · Welcome, up to date</div>
+    <div class="sub">The version, bottom right.</div>
+    <div class="tv"><div class="welcome">
+      <div class="l"><svg width="62" height="70"><use href="#mark"/></svg><div style="font-weight:900;font-size:15px;margin-top:6px">Ready to cast</div>
+        <div class="pill"><span class="dot"></span><b>MyCast</b><span style="color:var(--text2)">Standby</span></div></div>
+      <div class="r">
+        <div style="font-weight:900;font-size:13px">Watch a video on this TV</div>
+        <div class="step ok"><span class="num">✓</span>Connect this TV to Wi-Fi</div>
+        <div class="step"><span class="num">2</span>Open Castify on your phone, tap ⌁ and pick MyCast</div>
+        <div class="step"><span class="num">3</span>Find a video, tap “Videos found”</div>
+      </div>
+      <div class="tvver">v0.4.0</div>
+    </div></div>
+  </div>
+
+  <div>
+    <div class="label"><span>T1</span> · Update available</div>
+    <div class="sub">Focus starts on Update. ◀ ▶ to move, OK to choose, Back = Not now.</div>
+    <div class="tv"><div class="welcome">
+      <div class="l"><svg width="62" height="70"><use href="#mark"/></svg></div>
+      <div class="tvver">v0.4.0</div>
+      <div class="tvdim"><div class="tvdialog">
+        <div class="t">Update available</div>
+        <div class="b">Castify v0.5.0 is ready to install. You have v0.4.0.</div>
+        <div class="btns"><span class="tvbtn focus">Update</span><span class="tvbtn">Not now</span></div>
+      </div></div>
+    </div></div>
+  </div>
+
+  <div>
+    <div class="label"><span>T2</span> · Downloading</div>
+    <div class="sub">Then Android TV's own confirmation (Update / Cancel), first time after allowing unknown apps.</div>
+    <div class="tv"><div class="welcome">
+      <div class="l"><svg width="62" height="70"><use href="#mark"/></svg></div>
+      <div class="tvdim"><div class="tvdialog">
+        <div class="t">Downloading v0.5.0</div>
+        <div class="progress"><i></i></div>
+        <div class="pct">7.1 / 11 MB</div>
+        <div class="btns"><span class="tvbtn focus">Cancel</span></div>
+      </div></div>
+    </div></div>
+  </div>
+
+  <div>
+    <div class="label"><span>T3</span> · Download failed</div>
+    <div class="sub">Same as the phone.</div>
+    <div class="tv"><div class="welcome">
+      <div class="l"><svg width="62" height="70"><use href="#mark"/></svg></div>
+      <div class="tvdim"><div class="tvdialog">
+        <div class="t">Update failed</div>
+        <div class="b">Couldn't download v0.5.0. Check the Wi-Fi and try again.</div>
+        <div class="btns"><span class="tvbtn focus">Retry</span><span class="tvbtn">Not now</span></div>
+      </div></div>
+    </div></div>
+  </div>
+</div>
+</body>
+</html>

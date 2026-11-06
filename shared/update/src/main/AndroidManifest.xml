@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- In-app update: the user allows "Install unknown apps" for Castify once. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <application>
+        <receiver
+            android:name="app.castify.update.InstallResultReceiver"
+            android:exported="false" />
+    </application>
+</manifest>
