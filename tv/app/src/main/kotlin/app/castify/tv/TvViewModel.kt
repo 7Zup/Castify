@@ -1,0 +1,423 @@
+package app.castify.tv
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import app.castify.domain.model.MediaStream
+import app.castify.domain.model.NowPlaying
+import app.castify.domain.model.PlaybackState
+import app.castify.domain.model.PlaybackStats
+import app.castify.domain.playback.PlayerCommand
+import app.castify.domain.playback.RemoteControl
+import app.castify.domain.subtitles.SubtitleMenu
+import app.castify.domain.subtitles.SubtitleOption
+import app.castify.domain.playback.RemoteKey
+import app.castify.domain.port.CastReceiver
+import app.castify.domain.port.Player
+import app.castify.domain.port.NetworkMonitor
+import app.castify.domain.status.TvPresence
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.currentCoroutineContext
+import app.castify.domain.usecase.HandlePlayerCommand
+import app.castify.domain.usecase.PlayStream
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+enum class TvScreen { WAITING, PLAYING, ERROR }
+
+/** Buttons of the error screen (mockup T1 / T2): Retry restarts where it stopped, Home stops. */
+enum class ErrorButton { RETRY, HOME }
+
+/** Subtitle menu opened from the `CC` button: same options and order as the phone ([SubtitleMenu]). */
+data class SubtitleMenuState(val options: List<SubtitleOption>, val focused: Int)
+
+/**
+ * Netflix-style player controls (▼). The progress bar sits above the button row; no Stop
+ * button (user: Back / Home already stop). Room is left for episode buttons later.
+ */
+enum class ControlFocus { PROGRESS, BACK_10, PLAY_PAUSE, FORWARD_10, SUBTITLES }
+
+val CONTROL_BUTTONS = listOf(ControlFocus.BACK_10, ControlFocus.PLAY_PAUSE, ControlFocus.FORWARD_10, ControlFocus.SUBTITLES)
+
+data class ControlsState(val focus: ControlFocus = ControlFocus.PLAY_PAUSE)
+
+data class TvUiState(
+    val deviceName: String = "",
+    val screen: TvScreen = TvScreen.WAITING,
+    val current: MediaStream? = null,
+    val stats: PlaybackStats = PlaybackStats(),
+    val diagnosticsVisible: Boolean = false,
+    /** Null = closed. */
+    val subtitleMenu: SubtitleMenuState? = null,
+    /** Time bar shown for [OSD_AFTER_SEEK_MS] after a seek (it is always shown while paused). */
+    val timeBarAfterSeek: Boolean = false,
+    /** Cumulative ±10 s jumps ("+30 s"), 0 = no bubble. */
+    val seekBubbleMs: Long = 0,
+    /** Null = controls hidden (remote shortcuts apply). */
+    val controls: ControlsState? = null,
+    /** Back hid the pause time bar; it shows again at the next pause. */
+    val pausedBarDismissed: Boolean = false,
+    /** First Back with nothing on screen: "Press Back again to stop the video". */
+    val stopArmed: Boolean = false,
+    /** Welcome screen state (dot + label): Offline / Standby / Connected. */
+    val presence: TvPresence = TvPresence.STANDBY,
+    /** Error screen: which button has the focus (Retry first). */
+    val errorFocus: ErrorButton = ErrorButton.RETRY,
+    /** Where the video was and which subtitle was on, for Retry. */
+    val lastPositionMs: Long = 0,
+    val lastSubtitleId: String? = null,
+) {
+    val timeBarVisible: Boolean
+        get() = timeBarAfterSeek || (stats.state == PlaybackState.PAUSED && !pausedBarDismissed)
+
+    /** Something drawn over the video that Back should remove first. */
+    val overlayVisible: Boolean
+        get() = controls != null || subtitleMenu != null || timeBarVisible || diagnosticsVisible || seekBubbleMs != 0L
+}
+
+/** User choice: the time bar stays 3 s after the last ◀ / ▶. */
+const val OSD_AFTER_SEEK_MS = 3_000L
+/** Controls hide after 5 s without a key press, never while paused or in the subtitle menu. */
+const val CONTROLS_IDLE_MS = 5_000L
+/** Window for the second Back that stops the video (user: an accidental Back must not stop it). */
+const val STOP_CONFIRM_MS = 3_000L
+/** Same as the phone remote: the "+30 s" bubble resets 1.2 s after the last press. */
+const val SEEK_BUBBLE_MS = 1_200L
+
+class TvViewModel(
+    private val receiver: CastReceiver,
+    private val player: Player,
+    private val playStream: PlayStream,
+    private val handlePlayerCommand: HandlePlayerCommand,
+    private val network: NetworkMonitor,
+) : ViewModel() {
+
+    /** Subtitle to turn back on once the retried stream lists its tracks. */
+    private var pendingSubtitleId: String? = null
+
+    private val _state = MutableStateFlow(TvUiState())
+    val state: StateFlow<TvUiState> = _state.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            receiver.playRequests.collect { stream ->
+                pendingSubtitleId = null
+                _state.update {
+                    it.copy(
+                        screen = TvScreen.PLAYING,
+                        lastPositionMs = 0,
+                        lastSubtitleId = null,
+                        current = stream,
+                        subtitleMenu = null,
+                        timeBarAfterSeek = false,
+                        seekBubbleMs = 0,
+                        controls = null,
+                        pausedBarDismissed = false,
+                        stopArmed = false,
+                    )
+                }
+                playStream(stream)
+            }
+        }
+        // Commands from phones go through the same path as the TV remote (time bar included).
+        viewModelScope.launch {
+            receiver.commands.collect { command ->
+                if (_state.value.screen == TvScreen.PLAYING) apply(command)
+            }
+        }
+        viewModelScope.launch {
+            player.stats.collect { stats ->
+                _state.update {
+                    val screen = when {
+                        stats.state == PlaybackState.ERROR -> TvScreen.ERROR
+                        it.screen == TvScreen.ERROR -> TvScreen.ERROR
+                        stats.state == PlaybackState.IDLE -> TvScreen.WAITING
+                        else -> it.screen
+                    }
+                    val playing = screen == TvScreen.PLAYING
+                    it.copy(
+                        stats = stats,
+                        screen = screen,
+                        errorFocus = if (screen == TvScreen.ERROR && it.screen != TvScreen.ERROR) ErrorButton.RETRY else it.errorFocus,
+                        // Remembered for Retry while the video really plays (the error resets nothing).
+                        lastPositionMs = if (playing && stats.positionMs > 0) stats.positionMs else it.lastPositionMs,
+                        lastSubtitleId = if (playing && pendingSubtitleId == null) stats.selectedSubtitleId else it.lastSubtitleId,
+                        // A dismissed pause bar comes back at the next pause.
+                        pausedBarDismissed = it.pausedBarDismissed && stats.state == PlaybackState.PAUSED,
+                        stopArmed = it.stopArmed && screen == TvScreen.PLAYING,
+                        subtitleMenu = it.subtitleMenu.takeIf { screen == TvScreen.PLAYING },
+                        controls = it.controls.takeIf { screen == TvScreen.PLAYING },
+                    )
+                }
+            }
+        }
+    }
+
+    init {
+        // Welcome screen state: re-evaluated every second (a phone stops calling = Standby).
+        val ticker = flow { while (currentCoroutineContext().isActive) { emit(Unit); delay(1_000) } }
+        viewModelScope.launch {
+            combine(network.online, receiver.lastPhoneCallAtMs, ticker) { online, lastCall, _ ->
+                TvPresence.of(online, lastCall, System.currentTimeMillis())
+            }.collect { presence -> _state.update { it.copy(presence = presence) } }
+        }
+        // Retry: turn the subtitle back on once the new stream lists its tracks.
+        viewModelScope.launch {
+            player.stats.collect { stats ->
+                val id = pendingSubtitleId ?: return@collect
+                if (stats.subtitles.any { it.id == id }) {
+                    pendingSubtitleId = null
+                    player.selectSubtitle(id)
+                }
+            }
+        }
+    }
+
+    /** Error screen, Retry: same video, same place, same subtitle. Nothing retries by itself. */
+    private fun retry() {
+        val s = _state.value
+        val stream = s.current ?: return home()
+        pendingSubtitleId = s.lastSubtitleId
+        _state.update {
+            it.copy(screen = TvScreen.PLAYING, controls = null, subtitleMenu = null, stopArmed = false, timeBarAfterSeek = false, seekBubbleMs = 0)
+        }
+        playStream(stream, s.lastPositionMs)
+    }
+
+    /** Error screen, Home (or Back): stop, back to the welcome screen. */
+    private fun home() {
+        pendingSubtitleId = null
+        player.stop()
+        _state.update { it.copy(screen = TvScreen.WAITING, current = null, lastPositionMs = 0, lastSubtitleId = null) }
+    }
+
+    fun start(deviceName: String) {
+        _state.update { it.copy(deviceName = deviceName) }
+        receiver.start(deviceName) {
+            val current = _state.value
+            if (current.screen == TvScreen.PLAYING) NowPlaying.from(player.stats.value, current.current)
+            else NowPlaying.IDLE
+        }
+    }
+
+    fun stop() {
+        receiver.stop()
+        player.stop()
+        _state.update { it.copy(screen = TvScreen.WAITING, current = null) }
+    }
+
+    /** Returns true when the key was consumed. Unhandled keys (Back while waiting) go to the system. */
+    fun onKey(key: RemoteKey): Boolean {
+        return when (_state.value.screen) {
+            TvScreen.WAITING -> false
+            TvScreen.ERROR -> when (key) {
+                RemoteKey.LEFT -> { _state.update { it.copy(errorFocus = ErrorButton.RETRY) }; true }
+                RemoteKey.RIGHT -> { _state.update { it.copy(errorFocus = ErrorButton.HOME) }; true }
+                RemoteKey.OK -> { if (_state.value.errorFocus == ErrorButton.RETRY) retry() else home(); true }
+                RemoteKey.BACK -> { home(); true }
+                else -> true
+            }
+            TvScreen.PLAYING -> {
+                _state.value.subtitleMenu?.let { return onMenuKey(it, key).also { touchControls() } }
+                _state.value.controls?.let { return onControlsKey(it, key) }
+                if (key == RemoteKey.BACK) return onBackWithoutControls()
+                when (val command = RemoteControl.commandFor(key) ?: return false) {
+                    PlayerCommand.ToggleDiagnostics -> _state.update { it.copy(diagnosticsVisible = !it.diagnosticsVisible) }
+                    PlayerCommand.ShowControls -> showControls()
+                    PlayerCommand.OpenSubtitleMenu -> openSubtitleMenu()
+                    // OK while playing = pause AND show the controls (user request): the next OK
+                    // then lands on Play/Pause and resumes.
+                    PlayerCommand.TogglePause -> {
+                        val pausing = _state.value.stats.state != PlaybackState.PAUSED
+                        apply(command)
+                        if (pausing) showControls()
+                    }
+                    else -> apply(command)
+                }
+                true
+            }
+        }
+    }
+
+    private var stopConfirmJob: Job? = null
+
+    /**
+     * Back, controls hidden: (1) anything over the video (time bar, bubble, diagnostics) →
+     * hide it, the video goes on; (2) nothing → arm "Press Back again to stop the video" for
+     * [STOP_CONFIRM_MS]; (3) armed → stop.
+     */
+    private fun onBackWithoutControls(): Boolean {
+        val s = _state.value
+        when {
+            s.overlayVisible -> {
+                timeBarJob?.cancel()
+                bubbleJob?.cancel()
+                _state.update {
+                    it.copy(
+                        timeBarAfterSeek = false,
+                        pausedBarDismissed = it.stats.state == PlaybackState.PAUSED,
+                        diagnosticsVisible = false,
+                        seekBubbleMs = 0,
+                    )
+                }
+            }
+            s.stopArmed -> {
+                stopConfirmJob?.cancel()
+                _state.update { it.copy(stopArmed = false) }
+                apply(PlayerCommand.Stop)
+            }
+            else -> {
+                _state.update { it.copy(stopArmed = true) }
+                stopConfirmJob?.cancel()
+                stopConfirmJob = viewModelScope.launch {
+                    delay(STOP_CONFIRM_MS)
+                    _state.update { it.copy(stopArmed = false) }
+                }
+            }
+        }
+        return true
+    }
+
+    private var controlsJob: Job? = null
+    @Volatile private var lastControlsKeyAt = 0L
+
+    private fun showControls() {
+        _state.update { it.copy(controls = ControlsState(), timeBarAfterSeek = false) }
+        touchControls()
+        controlsJob?.cancel()
+        controlsJob = viewModelScope.launch {
+            while (true) {
+                delay(250)
+                val s = _state.value
+                if (s.controls == null) break
+                val idle = System.currentTimeMillis() - lastControlsKeyAt > CONTROLS_IDLE_MS
+                if (idle && s.subtitleMenu == null && s.stats.state != PlaybackState.PAUSED) {
+                    hideControls()
+                    break
+                }
+            }
+        }
+    }
+
+    private fun touchControls() {
+        lastControlsKeyAt = System.currentTimeMillis()
+    }
+
+    private fun hideControls() = _state.update { it.copy(controls = null) }
+
+    /**
+     * Inside the controls: ◀ ▶ move between buttons (or seek ±10 s on the progress bar),
+     * ▲ ▼ switch between progress bar and buttons, OK activates, Back hides the controls.
+     */
+    private fun onControlsKey(controls: ControlsState, key: RemoteKey): Boolean {
+        touchControls()
+        val stats = _state.value.stats
+        val seekable = !stats.isLive && (stats.durationMs ?: 0) > 0
+        fun focus(f: ControlFocus) = _state.update { it.copy(controls = controls.copy(focus = f)) }
+        when (key) {
+            RemoteKey.BACK -> hideControls()
+            RemoteKey.UP -> if (controls.focus != ControlFocus.PROGRESS && seekable) focus(ControlFocus.PROGRESS)
+            RemoteKey.DOWN -> if (controls.focus == ControlFocus.PROGRESS) focus(ControlFocus.PLAY_PAUSE)
+            RemoteKey.LEFT, RemoteKey.RIGHT -> {
+                val forward = key == RemoteKey.RIGHT
+                if (controls.focus == ControlFocus.PROGRESS) {
+                    apply(PlayerCommand.SeekBy(if (forward) RemoteControl.SEEK_STEP_MS else -RemoteControl.SEEK_STEP_MS))
+                } else {
+                    val buttons = CONTROL_BUTTONS.filter { seekable || (it != ControlFocus.BACK_10 && it != ControlFocus.FORWARD_10) }
+                    val index = buttons.indexOf(controls.focus).coerceAtLeast(0)
+                    focus(buttons[(index + if (forward) 1 else -1).coerceIn(0, buttons.lastIndex)])
+                }
+            }
+            RemoteKey.OK -> when (controls.focus) {
+                ControlFocus.PROGRESS, ControlFocus.PLAY_PAUSE -> apply(PlayerCommand.TogglePause)
+                ControlFocus.BACK_10 -> apply(PlayerCommand.SeekBy(-RemoteControl.SEEK_STEP_MS))
+                ControlFocus.FORWARD_10 -> apply(PlayerCommand.SeekBy(RemoteControl.SEEK_STEP_MS))
+                ControlFocus.SUBTITLES -> openSubtitleMenu()
+            }
+        }
+        return true
+    }
+
+    private var timeBarJob: Job? = null
+    private var bubbleJob: Job? = null
+
+    /** Applies a player command; seeks show the time bar, ±10 s also feed the bubble. */
+    private fun apply(command: PlayerCommand) {
+        handlePlayerCommand(command)
+        when (command) {
+            is PlayerCommand.SeekBy -> onSeek(command.deltaMs)
+            is PlayerCommand.SeekTo -> onSeek(null)
+            else -> Unit
+        }
+    }
+
+    private fun onSeek(deltaMs: Long?) {
+        _state.update { s ->
+            val bubble = when {
+                deltaMs == null -> s.seekBubbleMs
+                s.seekBubbleMs != 0L && (s.seekBubbleMs > 0) != (deltaMs > 0) -> deltaMs // direction changed
+                else -> s.seekBubbleMs + deltaMs
+            }
+            s.copy(timeBarAfterSeek = true, seekBubbleMs = bubble)
+        }
+        timeBarJob?.cancel()
+        timeBarJob = viewModelScope.launch {
+            delay(OSD_AFTER_SEEK_MS)
+            _state.update { it.copy(timeBarAfterSeek = false) }
+        }
+        if (deltaMs != null) {
+            bubbleJob?.cancel()
+            bubbleJob = viewModelScope.launch {
+                delay(SEEK_BUBBLE_MS)
+                _state.update { it.copy(seekBubbleMs = 0) }
+            }
+        }
+    }
+
+    private fun openSubtitleMenu() {
+        val stats = player.stats.value
+        val options = SubtitleMenu.options(stats.subtitles)
+        val focused = options.indexOfFirst { it.trackId == stats.selectedSubtitleId }.coerceAtLeast(0)
+        _state.update { it.copy(subtitleMenu = SubtitleMenuState(options, focused)) }
+    }
+
+    /** ▲ ▼ move, OK picks and closes, Back closes without change. Other keys are swallowed. */
+    private fun onMenuKey(menu: SubtitleMenuState, key: RemoteKey): Boolean {
+        when (key) {
+            RemoteKey.UP -> _state.update { it.copy(subtitleMenu = menu.copy(focused = (menu.focused - 1).coerceAtLeast(0))) }
+            RemoteKey.DOWN -> _state.update {
+                it.copy(subtitleMenu = menu.copy(focused = (menu.focused + 1).coerceAtMost(menu.options.lastIndex)))
+            }
+            RemoteKey.OK -> {
+                // Only "Off" in the list = no subtitles: OK just closes.
+                if (menu.options.size > 1) handlePlayerCommand(PlayerCommand.SelectSubtitle(menu.options[menu.focused].trackId))
+                _state.update { it.copy(subtitleMenu = null) }
+            }
+            RemoteKey.BACK -> _state.update { it.copy(subtitleMenu = null) }
+            RemoteKey.LEFT, RemoteKey.RIGHT -> Unit
+        }
+        return true
+    }
+
+    override fun onCleared() {
+        receiver.stop()
+        player.release()
+    }
+
+    companion object {
+        fun factory(container: TvContainer): ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                TvViewModel(container.receiver, container.player, container.playStream, container.handlePlayerCommand, container.network)
+            }
+        }
+    }
+}

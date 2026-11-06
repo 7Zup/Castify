@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – home screen A+B with the logo</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .intro { color:var(--text2); margin:0 0 28px; font-size:14px; max-width:980px; }
+  .row { display:flex; gap:36px; flex-wrap:wrap; align-items:flex-start; }
+  .option { width:300px; }
+  .option h2 { font-size:16px; margin:0 0 4px; } .option h2 span { color:var(--red); }
+  .option p { color:var(--text2); font-size:12.5px; margin:0 0 12px; min-height:48px; }
+
+  .phone { width:300px; height:620px; background:var(--bg); border-radius:28px; border:6px solid #2b2b2b; overflow:hidden; position:relative; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; position:relative; z-index:2; }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 10px 8px; position:relative; z-index:2; }
+  .ico { width:22px; height:22px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:17px; }
+  .tabs { width:17px; height:17px; border:2px solid var(--text2); border-radius:3px; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .spacer { flex:1; }
+  .word { font-weight:900; font-size:19px; letter-spacing:.3px; }
+  .word.red { color:var(--red); }
+  .content { padding:4px 14px; position:relative; z-index:2; }
+  .search { height:48px; border-radius:26px; background:var(--surface); display:flex; align-items:center; gap:10px; padding:0 16px; color:var(--text2); font-size:13.5px; }
+  .search.outline { background:transparent; border:1px solid #555; }
+  .search svg { flex:0 0 auto; }
+  .section { display:flex; justify-content:space-between; align-items:center; margin:16px 0 8px; }
+  .section b { font-size:11px; color:var(--text2); letter-spacing:.5px; } .section a { font-size:11px; color:var(--red); font-weight:700; }
+
+  .scroller { display:flex; gap:10px; overflow:hidden; }
+  .card { flex:0 0 130px; }
+  .thumb { height:73px; border-radius:4px; position:relative; overflow:hidden; }
+  .thumb .progress { position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(255,255,255,.25); } .thumb .progress i { display:block; height:100%; background:var(--red); }
+  .thumb .dur { position:absolute; right:5px; bottom:7px; font-size:9px; background:rgba(0,0,0,.7); padding:1px 4px; border-radius:3px; }
+  .card .t { font-size:11.5px; font-weight:700; margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .card .s { font-size:10px; color:var(--text2); }
+
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px 6px; }
+  .fav { display:flex; flex-direction:column; align-items:center; gap:5px; font-size:10px; text-align:center; }
+  .logo { width:50px; height:50px; border-radius:14px; background:var(--surface); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:19px; }
+  .logo.add { color:var(--text2); font-weight:400; font-size:26px; }
+
+  /* hero banner (variant 4) */
+  .hero { position:absolute; left:0; right:0; top:0; height:330px; }
+  .hero .scrim { position:absolute; inset:0; background:linear-gradient(180deg, rgba(20,20,20,.55) 0%, rgba(20,20,20,.1) 35%, rgba(20,20,20,.85) 78%, #141414 100%); }
+  .hero .info { position:absolute; left:16px; right:16px; bottom:16px; }
+  .hero .info .k { font-size:10px; color:var(--text2); letter-spacing:.6px; font-weight:700; }
+  .hero .info .tt { font-size:22px; font-weight:900; margin:3px 0 2px; }
+  .hero .info .ss { font-size:11px; color:var(--text2); }
+  .hero .btns { display:flex; gap:8px; margin-top:10px; }
+  .btn { border-radius:4px; padding:8px 14px; font-size:12px; font-weight:800; }
+  .btn.w { background:#fff; color:#000; } .btn.g { background:rgba(109,109,109,.6); }
+  .hero .bar2 { position:absolute; left:16px; right:16px; bottom:0; height:3px; background:rgba(255,255,255,.25); } .hero .bar2 i { display:block; width:30%; height:100%; background:var(--red); }
+
+  .wm { position:absolute; right:-60px; bottom:-40px; opacity:.07; z-index:1; }
+  .note { font-size:11px; color:var(--text2); margin-top:10px; }
+
+  .g1 { background:linear-gradient(135deg,#3b1f5c,#c2185b 60%,#ff8a65); }
+  .g2 { background:linear-gradient(135deg,#0d3b2e,#2e7d32 55%,#c0ca33); }
+  .g3 { background:linear-gradient(135deg,#102a43,#1565c0 60%,#4fc3f7); }
+  .c1 { background:#6a1b9a; } .c2 { background:#00695c; } .c3 { background:#1565c0; } .c4 { background:#bf360c; } .c5 { background:#37474f; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="cgrad" gradientUnits="userSpaceOnUse" x1="32" y1="54" x2="68" y2="54">
+      <stop offset="0" stop-color="#8E0610"/><stop offset="1" stop-color="#E50914"/>
+    </linearGradient>
+    <!-- Same paths as phone/app/src/main/res/drawable/ic_launcher_foreground.xml, viewBox cropped to the mark -->
+    <symbol id="mark" viewBox="26 26 50 56">
+      <path d="M67.5,36.6 A22,22 0 1,0 67.5,71.4" fill="none" stroke="url(#cgrad)" stroke-width="11"/>
+      <path d="M67.5,36.6 A22,22 0 0,0 39.5,41.9" fill="none" stroke="#E50914" stroke-width="11"/>
+      <path d="M47,60 a4,4 0 0,1 4,4 L47,64 z" fill="#fff"/>
+      <path d="M47,55 a9,9 0 0,1 9,9" fill="none" stroke="#fff" stroke-width="3"/>
+      <path d="M47,50 a14,14 0 0,1 14,14" fill="none" stroke="#fff" stroke-width="3"/>
+    </symbol>
+  </defs>
+</svg>
+
+<h1>Home screen A + B with the Castify logo: 5 tries</h1>
+<p class="intro">Continue watching + search + favorite logos, with the logo placed differently each time. Thumbnails and site logos are placeholders. The logo is the real app icon.</p>
+
+<div class="row">
+
+  <!-- 1 -->
+  <div class="option">
+    <h2><span>1</span> · Logo centered</h2>
+    <p>Google style: the logo and the name above the search field, then Continue watching and favorites.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><span class="spacer"></span><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="content">
+        <div style="display:flex;flex-direction:column;align-items:center;margin:6px 0 16px">
+          <svg width="64" height="72"><use href="#mark"/></svg>
+          <div class="word" style="margin-top:4px;font-size:22px">Castify</div>
+        </div>
+        <div class="search">🔍 Search or type a website</div>
+        <div class="section"><b>CONTINUE WATCHING</b><a>History</a></div>
+        <div class="scroller">
+          <div class="card"><div class="thumb g1"><span class="dur">42 min</span><div class="progress"><i style="width:30%"></i></div></div><div class="t">Silicon Valley · S4E9</div><div class="s">tubesite.example</div></div>
+          <div class="card"><div class="thumb g2"><span class="dur">1 h 12</span><div class="progress"><i style="width:55%"></i></div></div><div class="t">Resident Evil</div><div class="s">moviesite.example</div></div>
+          <div class="card"><div class="thumb g3"><div class="progress"><i style="width:90%"></i></div></div><div class="t">The Bear · S2E1</div><div class="s">videosite.example</div></div>
+        </div>
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="grid">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div><div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div><div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="option">
+    <h2><span>2</span> · Netflix top bar</h2>
+    <p>Small logo at the top left, like the Netflix app; the search field just below, full width.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><svg width="26" height="30"><use href="#mark"/></svg><span class="spacer"></span><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="content">
+        <div class="search outline">🔍 Search or type a website</div>
+        <div class="section"><b>CONTINUE WATCHING</b><a>History</a></div>
+        <div class="scroller">
+          <div class="card"><div class="thumb g1"><span class="dur">42 min</span><div class="progress"><i style="width:30%"></i></div></div><div class="t">Silicon Valley · S4E9</div><div class="s">tubesite.example</div></div>
+          <div class="card"><div class="thumb g2"><span class="dur">1 h 12</span><div class="progress"><i style="width:55%"></i></div></div><div class="t">Resident Evil</div><div class="s">moviesite.example</div></div>
+          <div class="card"><div class="thumb g3"><div class="progress"><i style="width:90%"></i></div></div><div class="t">The Bear · S2E1</div><div class="s">videosite.example</div></div>
+        </div>
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="grid">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div><div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div><div class="fav"><div class="logo c4">F</div>Flix</div>
+          <div class="fav"><div class="logo c5">S</div>Streamo</div><div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="option">
+    <h2><span>3</span> · Logo + name in the bar</h2>
+    <p>Logo and “Castify” in the top bar, the search field right under it: the brand stays visible, nothing is pushed down.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><svg width="24" height="28"><use href="#mark"/></svg><span class="word">Castify</span><span class="spacer"></span><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="content">
+        <div class="search">🔍 Search or type a website</div>
+        <div class="section"><b>CONTINUE WATCHING</b><a>History</a></div>
+        <div class="scroller">
+          <div class="card" style="flex-basis:190px"><div class="thumb g1" style="height:107px"><span class="dur">42 min left</span><div class="progress"><i style="width:30%"></i></div></div><div class="t">Silicon Valley · S4E9</div><div class="s">tubesite.example</div></div>
+          <div class="card" style="flex-basis:190px"><div class="thumb g2" style="height:107px"><span class="dur">1 h 12 left</span><div class="progress"><i style="width:55%"></i></div></div><div class="t">Resident Evil</div><div class="s">moviesite.example</div></div>
+        </div>
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="grid">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div><div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div><div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="option">
+    <h2><span>4</span> · Netflix hero</h2>
+    <p>The last video as a big banner (Resume / Details), small logo on top of it. Most “Netflix”, but the search field moves lower.</p>
+    <div class="phone">
+      <div class="hero g1"><div class="scrim"></div>
+        <div class="info">
+          <div class="k">CONTINUE WATCHING</div>
+          <div class="tt">Silicon Valley · S4E9</div>
+          <div class="ss">tubesite.example · 42 min left</div>
+          <div class="btns"><span class="btn w">▶ Resume</span><span class="btn g">Open page</span></div>
+        </div>
+        <div class="bar2"><i></i></div>
+      </div>
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><svg width="26" height="30"><use href="#mark"/></svg><span class="spacer"></span><div class="ico" style="color:#fff">⌁</div><div class="tabs" style="border-color:#fff">2</div><div class="ico" style="color:#fff">⋮</div></div>
+      <div class="content" style="margin-top:268px">
+        <div class="search">🔍 Search or type a website</div>
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="grid">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div><div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div><div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">“Resume” = reopen the page and send the video to the TV at the saved position (needs extra work, see feasibility).</div>
+  </div>
+
+  <!-- 5 -->
+  <div class="option">
+    <h2><span>5</span> · Logo in the search field + watermark</h2>
+    <p>The logo replaces the 🔍 in the search field; a big faded logo sits in the background, bottom right.</p>
+    <div class="phone">
+      <svg class="wm" width="260" height="290"><use href="#mark"/></svg>
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><span class="spacer"></span><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="content">
+        <div class="search" style="margin-top:10px"><svg width="22" height="25"><use href="#mark"/></svg>Search or type a website</div>
+        <div class="section"><b>CONTINUE WATCHING</b><a>History</a></div>
+        <div class="scroller">
+          <div class="card"><div class="thumb g1"><span class="dur">42 min</span><div class="progress"><i style="width:30%"></i></div></div><div class="t">Silicon Valley · S4E9</div><div class="s">tubesite.example</div></div>
+          <div class="card"><div class="thumb g2"><span class="dur">1 h 12</span><div class="progress"><i style="width:55%"></i></div></div><div class="t">Resident Evil</div><div class="s">moviesite.example</div></div>
+          <div class="card"><div class="thumb g3"><div class="progress"><i style="width:90%"></i></div></div><div class="t">The Bear · S2E1</div><div class="s">videosite.example</div></div>
+        </div>
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="grid">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div><div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div><div class="fav"><div class="logo c4">F</div>Flix</div>
+          <div class="fav"><div class="logo c5">S</div>Streamo</div><div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

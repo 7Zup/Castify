@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – offline and error screens</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; } h3 { font-size:15px; color:var(--text2); margin:34px 0 14px; letter-spacing:.5px; }
+  .intro { color:var(--text2); margin:0 0 10px; font-size:14px; max-width:1000px; }
+  .row { display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; }
+  .label { font-size:13px; font-weight:700; margin:0 0 4px; } .label span { color:var(--red); }
+  .sub { color:var(--text2); font-size:12px; margin:0 0 10px; max-width:300px; min-height:32px; }
+
+  /* phone */
+  .phone { width:280px; height:560px; background:var(--bg); border-radius:26px; border:6px solid #2b2b2b; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 10px 8px; }
+  .field { flex:1; height:36px; border:1px solid #555; border-radius:20px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; color:var(--text); font-size:11.5px; }
+  .field i { color:var(--text2); font-style:normal; }
+  .ico { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:16px; }
+  .tabs { width:16px; height:16px; border:2px solid var(--text2); border-radius:3px; font-size:8.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .center { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 28px 40px; }
+  .glyph { width:64px; height:64px; border-radius:50%; background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:30px; color:var(--text2); margin-bottom:18px; }
+  .title { font-size:18px; font-weight:900; }
+  .body { font-size:12.5px; color:var(--text2); margin-top:8px; line-height:1.45; }
+  .btn { margin-top:22px; background:var(--red); color:#fff; font-weight:800; font-size:13px; border-radius:4px; padding:10px 26px; }
+  .btn.ghost { background:transparent; border:1px solid #555; color:var(--text); margin-top:10px; }
+  .hint { font-size:10.5px; color:var(--dis); margin-top:14px; }
+  .snack { position:absolute; left:10px; right:10px; bottom:14px; background:var(--raised); border-radius:6px; padding:11px 12px; font-size:12px; display:flex; justify-content:space-between; align-items:center; }
+  .snack b { color:var(--red); font-size:12px; }
+  .banner { margin:0 12px; background:var(--surface); border-left:3px solid var(--red); border-radius:4px; padding:9px 10px; font-size:11.5px; display:flex; justify-content:space-between; align-items:center; }
+  .banner b { color:var(--red); }
+  .home { padding:4px 14px; }
+  .sec { display:flex; justify-content:space-between; margin:16px 0 8px; font-size:10.5px; color:var(--text2); font-weight:800; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px 4px; }
+  .fav { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:9.5px; }
+  .logo { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; }
+  .item { padding:9px 0; border-bottom:1px solid var(--surface); font-size:11.5px; color:var(--text); }
+  .c1 { background:#6a1b9a; } .c2 { background:#00695c; } .c3 { background:#1565c0; }
+
+  /* tv */
+  .tv { width:480px; height:270px; background:#000; border:6px solid #2b2b2b; border-radius:6px; position:relative; overflow:hidden; }
+  .tv .panel { position:absolute; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 60px; }
+  .tv .title { font-size:22px; } .tv .body { font-size:12px; max-width:320px; }
+  .tv .btns { display:flex; gap:10px; margin-top:18px; }
+  .tvbtn { padding:8px 20px; border-radius:6px; font-size:12px; font-weight:800; background:var(--raised); color:var(--text2); }
+  .tvbtn.focus { background:#fff; color:#000; outline:2px solid #fff; outline-offset:2px; transform:scale(1.05); }
+  .tv .code { position:absolute; bottom:10px; right:14px; font-size:9px; color:var(--dis); }
+  .scrim { position:absolute; inset:0; background:linear-gradient(135deg,#3b1f5c,#c2185b 60%,#ff8a65); opacity:.35; }
+  .welcome { position:absolute; inset:0; background:var(--bg); display:flex; }
+  .welcome .l { width:45%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .welcome .r { flex:1; display:flex; flex-direction:column; justify-content:center; padding-right:26px; }
+  .pill { margin-top:10px; background:var(--surface); border-radius:30px; padding:5px 12px; font-size:10px; display:flex; gap:8px; align-items:center; }
+  .dot { width:7px; height:7px; border-radius:50%; } .dot.green { background:#46D369; } .dot.white { background:#fff; animation:pulse 2s infinite; } @keyframes pulse { 50% { opacity:.3; } } .dot.red { background:var(--red); }
+  .step { display:flex; gap:10px; align-items:center; margin-top:12px; font-size:10.5px; } .num { width:20px; height:20px; border-radius:50%; background:var(--red); font-size:10px; font-weight:900; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .step.dim { opacity:.35; }
+  .notice { margin-top:12px; font-size:11px; color:var(--text); background:var(--surface); border-left:3px solid var(--red); padding:7px 9px; border-radius:3px; }
+  .note { font-size:11px; color:var(--text2); margin-top:8px; max-width:480px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="cgrad" gradientUnits="userSpaceOnUse" x1="32" y1="54" x2="68" y2="54"><stop offset="0" stop-color="#8E0610"/><stop offset="1" stop-color="#E50914"/></linearGradient>
+  <symbol id="mark" viewBox="26 26 50 56">
+    <path d="M67.5,36.6 A22,22 0 1,0 67.5,71.4" fill="none" stroke="url(#cgrad)" stroke-width="11"/>
+    <path d="M67.5,36.6 A22,22 0 0,0 39.5,41.9" fill="none" stroke="#E50914" stroke-width="11"/>
+    <path d="M47,60 a4,4 0 0,1 4,4 L47,64 z" fill="#fff"/><path d="M47,55 a9,9 0 0,1 9,9" fill="none" stroke="#fff" stroke-width="3"/><path d="M47,50 a14,14 0 0,1 14,14" fill="none" stroke="#fff" stroke-width="3"/>
+  </symbol></defs></svg>
+
+<h1>Offline and error screens: phone and TV</h1>
+<p class="intro">Castify screens replace Android's raw error page on the phone and the technical codes on the TV. Red is used only for the main action (Retry) and the alert mark; the green dot stays reserved for “Ready”.</p>
+
+<h3>PHONE</h3>
+<div class="row">
+  <div>
+    <div class="label"><span>P1</span> · Page can't load, no internet</div>
+    <div class="sub">Replaces Android's “Webpage not available”. Retry reloads the page.</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>✕ ◢ ▮</span></div>
+      <div class="bar"><div class="field">tubesite.example/watch/60573/4/7 <i>⟳</i></div><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="center">
+        <div class="glyph">⊘</div>
+        <div class="title">No internet connection</div>
+        <div class="body">Check that your phone is on Wi-Fi, then try again.</div>
+        <div class="btn">Retry</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label"><span>P2</span> · Website unreachable</div>
+    <div class="sub">Internet works but the site doesn't answer (down, wrong address, blocked).</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><div class="field">moviesite.example <i>⟳</i></div><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="center">
+        <div class="glyph">!</div>
+        <div class="title">Can't reach moviesite.example</div>
+        <div class="body">The website isn't answering. It may be down, or the address may be wrong.</div>
+        <div class="btn">Retry</div>
+        <div class="btn ghost">Go to home</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label"><span>P3</span> · Home screen while offline</div>
+    <div class="sub">A slim banner; favorites and history stay usable (they open P1 if still offline).</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>✕ ◢ ▮</span></div>
+      <div class="bar" style="justify-content:flex-end"><div class="ico">⌁</div><div class="tabs">1</div><div class="ico">⋮</div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;margin:2px 0 12px"><svg width="46" height="52"><use href="#mark"/></svg><div style="font-weight:900;font-size:18px">Castify</div></div>
+      <div class="banner"><span>No internet connection</span><b>Retry</b></div>
+      <div class="home">
+        <div class="sec"><span>FAVORITES</span></div>
+        <div class="grid"><div class="fav"><div class="logo c1">T</div>MovieSite</div><div class="fav"><div class="logo c2">1</div>TubeSite</div><div class="fav"><div class="logo c3">V</div>VideoSite</div></div>
+        <div class="sec"><span>RECENT</span></div>
+        <div class="item">www.tubesite.example/watch/60573/4/7</div>
+        <div class="item">moviesite.example</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label"><span>P4</span> · TV unreachable while connected</div>
+    <div class="sub">The phone lost the TV (TV off, app closed, Wi-Fi drop): message with Retry instead of silence.</div>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><div class="field">tubesite.example/watch/60573/4/7 <i>⟳</i></div><div class="ico" style="color:var(--red)">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div style="flex:1;background:linear-gradient(180deg,#222,#191919)"></div>
+      <div class="snack"><span>Can't reach MyCast</span><b>Retry</b></div>
+    </div>
+  </div>
+</div>
+
+<h3>TV</h3>
+<div class="row">
+  <div>
+    <div class="label"><span>T1</span> · Connection lost during playback</div>
+    <div class="sub">The TV lost the internet. Retry restarts the video where it stopped.</div>
+    <div class="tv"><div class="panel">
+      <div class="glyph" style="width:46px;height:46px;font-size:22px;margin-bottom:12px">⊘</div>
+      <div class="title" style="font-weight:900">Connection lost</div>
+      <div class="body">The TV lost its internet connection. Check the Wi-Fi, then try again.</div>
+      <div class="btns"><span class="tvbtn focus">Retry</span><span class="tvbtn">Home</span></div>
+      <div class="code">Silicon Valley · S4E9 · stopped at 24:12</div>
+    </div></div>
+  </div>
+
+  <div>
+    <div class="label"><span>T2</span> · The website refused the video</div>
+    <div class="sub">Site error (403, 404, 503…) or a format the TV can't play. Error code kept small at the bottom.</div>
+    <div class="tv"><div class="panel">
+      <div class="glyph" style="width:46px;height:46px;font-size:22px;margin-bottom:12px">!</div>
+      <div class="title" style="font-weight:900">This video can't be played</div>
+      <div class="body">The website refused to send the video. Try again, or send it again from your phone.</div>
+      <div class="btns"><span class="tvbtn focus">Retry</span><span class="tvbtn">Home</span></div>
+      <div class="code">HTTP 503</div>
+    </div></div>
+  </div>
+
+
+</div>
+<h3>TV WELCOME · 3 STATES (each state checks what the TV really knows; green = status dot or done step)</h3>
+<div class="row">
+  <div>
+    <div class="label"><span>T5</span> · Offline</div>
+    <div class="sub">Step 1 is the one to do; the others wait.</div>
+    <div class="tv"><div class="welcome">
+      <div class="l"><svg width="62" height="70"><use href="#mark"/></svg><div style="font-weight:900;font-size:15px;margin-top:6px">Not connected</div>
+        <div class="pill"><span class="dot red"></span><b>MyCast</b><span style="color:var(--text2)">Offline</span></div></div>
+      <div class="r">
+        <div style="font-weight:900;font-size:13px">Connect this TV to Wi-Fi</div>
+        <div class="step"><span class="num">1</span><span>Connect this TV to Wi-Fi<br><span style="color:var(--text2);font-size:9.5px">Settings → Network &amp; Internet, same Wi-Fi as your phone</span></span></div>
+        <div class="step dim"><span class="num">2</span>Open Castify on your phone, tap ⌁ and pick MyCast</div>
+        <div class="step dim"><span class="num">3</span>Find a video, tap “Videos found”</div>
+      </div>
+    </div></div>
+  </div>
+  <div>
+    <div class="label"><span>T3</span> · Standby</div>
+    <div class="sub">On Wi-Fi: step 1 checked, step 2 is next.</div>
+    <div class="tv"><div class="welcome">
+      <div class="l"><svg width="62" height="70"><use href="#mark"/></svg><div style="font-weight:900;font-size:15px;margin-top:6px">Ready to cast</div>
+        <div class="pill"><span class="dot white"></span><b>MyCast</b><span style="color:var(--text2)">Standby</span></div></div>
+      <div class="r">
+        <div style="font-weight:900;font-size:13px">Watch a video on this TV</div>
+        <div class="step" style="color:var(--text2)"><span class="num" style="background:#46D369;color:#000">✓</span>Connect this TV to Wi-Fi</div>
+        <div class="step"><span class="num">2</span>Open Castify on your phone, tap ⌁ and pick MyCast</div>
+        <div class="step"><span class="num">3</span>Find a video, tap “Videos found”</div>
+      </div>
+    </div></div>
+  </div>
+  <div>
+    <div class="label"><span>T4</span> · Connected</div>
+    <div class="sub">A phone is connected: steps 1 and 2 checked; step 3 ends on the video playing.</div>
+    <div class="tv"><div class="welcome">
+      <div class="l"><svg width="62" height="70"><use href="#mark"/></svg><div style="font-weight:900;font-size:15px;margin-top:6px">Ready to cast</div>
+        <div class="pill"><span class="dot green"></span><b>MyCast</b><span style="color:var(--text2)">Connected</span></div></div>
+      <div class="r">
+        <div style="font-weight:900;font-size:13px">Pick a video on your phone</div>
+        <div class="step" style="color:var(--text2)"><span class="num" style="background:#46D369;color:#000">✓</span>Connect this TV to Wi-Fi</div>
+        <div class="step" style="color:var(--text2)"><span class="num" style="background:#46D369;color:#000">✓</span>Open Castify on your phone, tap ⌁ and pick MyCast</div>
+        <div class="step"><span class="num">3</span>Find a video, tap “Videos found”</div>
+      </div>
+    </div></div>
+  </div>
+</div>
+</body>
+</html>

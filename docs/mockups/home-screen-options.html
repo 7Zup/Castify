@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – home screen options</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family: Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .intro { color:var(--text2); margin:0 0 28px; font-size:14px; max-width:900px; }
+  .row { display:flex; gap:36px; flex-wrap:wrap; align-items:flex-start; }
+  .option { width:300px; }
+  .option h2 { font-size:16px; margin:0 0 4px; }
+  .option h2 span { color:var(--red); }
+  .option p { color:var(--text2); font-size:12.5px; margin:0 0 12px; min-height:48px; }
+  .reco { outline:2px solid var(--red); outline-offset:10px; border-radius:30px; }
+
+  .phone { width:300px; height:620px; background:var(--bg); border-radius:28px; border:6px solid #2b2b2b; overflow:hidden; position:relative; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 10px 8px 10px; }
+  .field { flex:1; height:38px; border:1px solid #555; border-radius:20px; display:flex; align-items:center; padding:0 14px; color:var(--text2); font-size:12.5px; }
+  .ico { width:22px; height:22px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:17px; }
+  .tabs { width:17px; height:17px; border:2px solid var(--text2); border-radius:3px; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; color:var(--text); }
+  .content { padding:4px 14px; }
+  .section { display:flex; justify-content:space-between; align-items:center; margin:14px 0 8px; }
+  .section b { font-size:11px; color:var(--text2); letter-spacing:.5px; }
+  .section a { font-size:11px; color:var(--red); font-weight:700; }
+
+  /* continue watching */
+  .scroller { display:flex; gap:10px; overflow:hidden; }
+  .card { flex:0 0 190px; }
+  .thumb { height:107px; border-radius:4px; position:relative; overflow:hidden; }
+  .thumb .progress { position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(255,255,255,.25); }
+  .thumb .progress i { display:block; height:100%; background:var(--red); }
+  .thumb .dur { position:absolute; right:6px; bottom:8px; font-size:9.5px; background:rgba(0,0,0,.7); padding:1px 4px; border-radius:3px; }
+  .card .t { font-size:12px; font-weight:700; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .s { font-size:10.5px; color:var(--text2); }
+  .small .card { flex:0 0 130px; } .small .thumb { height:73px; }
+
+  /* favorites icons */
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px 6px; }
+  .fav { display:flex; flex-direction:column; align-items:center; gap:5px; font-size:10px; color:var(--text); text-align:center; }
+  .logo { width:52px; height:52px; border-radius:14px; background:var(--surface); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:20px; }
+  .logo.add { color:var(--text2); font-weight:400; font-size:26px; }
+
+  /* list */
+  .item { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--surface); font-size:12.5px; }
+  .item .h { color:var(--text2); font-size:14px; width:18px; text-align:center; }
+
+  /* big search */
+  .hero { padding:44px 18px 10px; text-align:center; }
+  .hero .big { height:50px; border-radius:26px; background:var(--surface); display:flex; align-items:center; gap:10px; padding:0 18px; color:var(--text2); font-size:14px; }
+
+  /* big favorite cards */
+  .cards2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .fcard { background:var(--surface); border-radius:8px; overflow:hidden; }
+  .fcard .shot { height:96px; }
+  .fcard .n { display:flex; align-items:center; gap:6px; padding:7px 8px; font-size:11px; font-weight:700; }
+  .mini { width:16px; height:16px; border-radius:4px; font-size:9px; font-weight:900; display:flex; align-items:center; justify-content:center; }
+
+  .fab { position:absolute; right:14px; bottom:18px; background:#3a1d1f; color:#ffd9d9; border-radius:16px; padding:12px 16px; font-size:12px; font-weight:700; }
+  .note { font-size:11px; color:var(--text2); margin-top:10px; }
+
+  /* gradients standing in for real thumbnails */
+  .g1 { background:linear-gradient(135deg,#3b1f5c,#c2185b 60%,#ff8a65); }
+  .g2 { background:linear-gradient(135deg,#0d3b2e,#2e7d32 55%,#c0ca33); }
+  .g3 { background:linear-gradient(135deg,#102a43,#1565c0 60%,#4fc3f7); }
+  .g4 { background:linear-gradient(135deg,#3e2723,#8d6e63 60%,#ffcc80); }
+  .c1 { background:#6a1b9a; } .c2 { background:#00695c; } .c3 { background:#1565c0; } .c4 { background:#bf360c; } .c5 { background:#37474f; } .c6 { background:#ad1457; }
+
+  /* flow C */
+  .flow { width:300px; background:var(--surface); border-radius:16px; padding:18px; font-size:12.5px; }
+  .flow .step { background:var(--bg); border-radius:10px; padding:10px 12px; margin:8px 0; }
+  .flow .arrow { text-align:center; color:var(--text2); }
+  .flow .step b { color:var(--text); } .flow .step span { color:var(--text2); display:block; font-size:11px; margin-top:2px; }
+</style>
+</head>
+<body>
+<h1>Home screen: options to choose from</h1>
+<p class="intro">Same top bar everywhere (address field, Cast, tabs counter, ⋮). Thumbnails and logos are placeholders (gradients and letters). Options can be combined. Option C is a change of flow, not a screen.</p>
+
+<div class="row">
+
+  <!-- A -->
+  <div class="option">
+    <h2><span>A</span> · Continue watching</h2>
+    <p>Netflix style: the last videos sent to the TV as big thumbnails (progress bar where it stopped). Tap = reopen the page. Favorites below.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><div class="field">Search or type a website</div><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="content">
+        <div class="section"><b>CONTINUE WATCHING</b><a>History</a></div>
+        <div class="scroller">
+          <div class="card"><div class="thumb g1"><span class="dur">42 min left</span><div class="progress"><i style="width:30%"></i></div></div><div class="t">Silicon Valley · S4E9</div><div class="s">tubesite.example · on MyCast</div></div>
+          <div class="card"><div class="thumb g2"><span class="dur">1 h 12 left</span><div class="progress"><i style="width:55%"></i></div></div><div class="t">Resident Evil</div><div class="s">moviesite.example</div></div>
+        </div>
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="grid">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div>
+          <div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div>
+          <div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="option">
+    <h2><span>B</span> · Search first</h2>
+    <p>Chrome style: a big search field in the middle, favorites as a grid of real site logos, then the last sites visited.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar" style="justify-content:flex-end"><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="hero"><div class="big">🔍 Search or type a website</div></div>
+      <div class="content">
+        <div class="grid" style="margin-top:14px">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div>
+          <div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div>
+          <div class="fav"><div class="logo c4">F</div>Flix</div>
+          <div class="fav"><div class="logo c5">S</div>Streamo</div>
+          <div class="fav"><div class="logo c6">D</div>Dramas</div>
+          <div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+        <div class="section"><b>RECENT</b><a>History</a></div>
+        <div class="item"><span class="h">↺</span>tubesite.example/watch/60573/4/7</div>
+        <div class="item"><span class="h">↺</span>moviesite.example</div>
+        <div class="item"><span class="h">🔍</span>resident evil 2026</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- D -->
+  <div class="option">
+    <h2><span>D</span> · Favorites as big cards</h2>
+    <p>Favorites shown like the tab grid, with a screenshot of the site. Recognize a site at a glance; fewer fit on screen.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><div class="field">Search or type a website</div><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="content">
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="cards2">
+          <div class="fcard"><div class="shot g3"></div><div class="n"><span class="mini c1">T</span>MovieSite</div></div>
+          <div class="fcard"><div class="shot g4"></div><div class="n"><span class="mini c2">1</span>TubeSite</div></div>
+          <div class="fcard"><div class="shot g1"></div><div class="n"><span class="mini c3">V</span>VideoSite</div></div>
+          <div class="fcard"><div class="shot" style="background:var(--raised);display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:26px">+</div><div class="n" style="color:var(--text2)">Add</div></div>
+        </div>
+        <div class="section"><b>RECENT</b><a>History</a></div>
+        <div class="item"><span class="h">↺</span>tubesite.example/watch/60573/4/7</div>
+        <div class="item"><span class="h">↺</span>moviesite.example</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- A + B -->
+  <div class="option reco">
+    <h2><span>A + B</span> · Recommended</h2>
+    <p>Big search on top, Continue watching, then favorite logos. The app opens here when the last tab was empty.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar" style="justify-content:flex-end"><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="hero" style="padding-top:18px"><div class="big">🔍 Search or type a website</div></div>
+      <div class="content">
+        <div class="section"><b>CONTINUE WATCHING</b><a>History</a></div>
+        <div class="scroller small">
+          <div class="card"><div class="thumb g1"><span class="dur">42 min</span><div class="progress"><i style="width:30%"></i></div></div><div class="t">Silicon Valley · S4E9</div><div class="s">tubesite.example</div></div>
+          <div class="card"><div class="thumb g2"><span class="dur">1 h 12</span><div class="progress"><i style="width:55%"></i></div></div><div class="t">Resident Evil</div><div class="s">moviesite.example</div></div>
+          <div class="card"><div class="thumb g3"><div class="progress"><i style="width:90%"></i></div></div><div class="t">The Bear · S2E1</div><div class="s">videosite.example</div></div>
+        </div>
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="grid">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div>
+          <div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div>
+          <div class="fav"><div class="logo c4">F</div>Flix</div>
+          <div class="fav"><div class="logo c5">S</div>Streamo</div>
+          <div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">Empty states: no video cast yet → the row is hidden; no favorite → only the “Add” tile.</div>
+  </div>
+
+  <!-- C -->
+  <div class="option">
+    <h2><span>C</span> · Change the flow</h2>
+    <p>No new screen: the app always reopens on the page you left, like Chrome. The home screen only shows for a new tab.</p>
+    <div class="flow">
+      <div class="step"><b>Open Castify</b><span>last tab restored</span></div>
+      <div class="arrow">↓</div>
+      <div class="step"><b>The page you were on</b><span>e.g. tubesite.example/watch/60573/4/7</span></div>
+      <div class="arrow">↓ tabs counter → +</div>
+      <div class="step"><b>Home screen</b><span>only for a new tab (any of A / B / D)</span></div>
+    </div>
+    <div class="note">Today: the app already restores the last tab; the home screen shows when that tab was empty.</div>
+  </div>
+
+</div>
+</body>
+</html>

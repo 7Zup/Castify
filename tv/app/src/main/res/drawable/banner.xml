@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 16:9 launcher banner required by Android TV: the Castify logo centered on black.
+     Same paths as phone/app ic_launcher_foreground.xml, scaled 1.6x. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path android:fillColor="#000000" android:pathData="M0,0h320v180h-320z" />
+    <group android:translateX="73.6" android:translateY="3.6" android:scaleX="1.6" android:scaleY="1.6">
+        <path
+            android:pathData="M67.5,36.6 A22,22 0 1,0 67.5,71.4"
+            android:strokeWidth="11">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="32" android:startY="54"
+                    android:endX="68" android:endY="54"
+                    android:startColor="#8E0610"
+                    android:endColor="#E50914" />
+            </aapt:attr>
+        </path>
+        <path
+            android:pathData="M67.5,36.6 A22,22 0 0,0 39.5,41.9"
+            android:strokeWidth="11"
+            android:strokeColor="#E50914" />
+        <path android:fillColor="#FFFFFF" android:pathData="M47,60 a4,4 0 0,1 4,4 L47,64 z" />
+        <path android:pathData="M47,55 a9,9 0 0,1 9,9" android:strokeWidth="3" android:strokeColor="#FFFFFF" />
+        <path android:pathData="M47,50 a14,14 0 0,1 14,14" android:strokeWidth="3" android:strokeColor="#FFFFFF" />
+    </group>
+</vector>

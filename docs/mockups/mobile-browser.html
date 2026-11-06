@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  body{margin:0;padding:24px;background:#0a0a0a;font-family:Roboto,Helvetica,Arial,sans-serif;color:#fff}
+  h1{font-size:18px;color:#888;font-weight:700;margin:0 0 18px}
+  .wrap{display:flex;flex-wrap:wrap;gap:28px}
+  .screen{width:340px}
+  .label{font-size:14px;color:#B3B3B3;margin:0 0 8px;font-weight:700}
+  .label b{color:#E50914}
+  .phone{width:340px;height:700px;background:#141414;border-radius:28px;border:6px solid #2a2a2a;overflow:hidden;position:relative;box-sizing:border-box}
+  .status{height:22px;font-size:11px;color:#ccc;padding:4px 16px 0;display:flex;justify-content:space-between}
+  /* top bar */
+  .bar{display:flex;align-items:center;gap:6px;padding:6px 8px 8px}
+  .url{flex:1;height:38px;border-radius:19px;background:#2A2A2A;display:flex;align-items:center;padding:0 12px;font-size:13px;color:#ddd;gap:8px;overflow:hidden;white-space:nowrap}
+  .url .lock{color:#888;font-size:12px}
+  .url .txt{flex:1;overflow:hidden;text-overflow:ellipsis}
+  .star{color:#B3B3B3;font-size:18px}
+  .star.on{color:#E50914}
+  .ic{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#B3B3B3}
+  .ic.red{color:#E50914}
+  /* Same optical size as Material icons (24 px slot, ~20 px drawn): Cast, tabs counter, more. */
+  .ic svg{width:24px;height:24px}
+  .tabs{width:16px;height:16px;border:2px solid currentColor;border-radius:4px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;color:#fff;box-sizing:content-box}
+  .ic .tabs{color:#B3B3B3}
+  /* Tighter gap between the tabs counter and the ⋮ menu (user feedback). */
+  .bar > .ic:last-child{margin-left:-10px;width:28px}
+  .ic .tabs span{color:#fff}
+  /* page */
+  .page{position:absolute;top:76px;left:0;right:0;bottom:0;background:linear-gradient(160deg,#1d2a35,#0f1418)}
+  .page .fake{position:absolute;top:40px;left:16px;right:16px;height:190px;border-radius:6px;background:#000;display:flex;align-items:center;justify-content:center;color:#555;font-size:13px}
+  .page .lines div{height:10px;border-radius:5px;background:#2a3a46;margin:10px 16px}
+  .fab{position:absolute;right:14px;bottom:86px;background:#E50914;border-radius:16px;padding:12px 16px;font-size:14px;font-weight:700;display:flex;gap:8px;align-items:center}
+  .np{position:absolute;left:0;right:0;bottom:0;background:#1F1F1F;padding:8px 10px 10px}
+  .np .row{display:flex;align-items:center;gap:10px}
+  .thumb{width:72px;height:40px;border-radius:4px;background:linear-gradient(135deg,#556,#223)}
+  .np .t{flex:1;font-size:12px}.np .t b{display:block;font-size:13px}
+  .np .t span{color:#B3B3B3}
+  .round{width:34px;height:34px;border-radius:50%;background:#fff;color:#141414;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900}
+  .prog{height:3px;background:#2A2A2A;border-radius:2px;margin-top:8px;position:relative}
+  .prog i{position:absolute;left:0;top:0;bottom:0;width:30%;background:#E50914;border-radius:2px}
+  /* menu */
+  .scrim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+  .menu{position:absolute;top:58px;right:8px;width:210px;background:#2A2A2A;border-radius:10px;padding:6px 0;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+  .menu .icons{display:flex;justify-content:space-around;padding:6px 6px 10px;border-bottom:1px solid #3a3a3a}
+  .menu .icons div{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:24px;color:#fff}
+  .menu .icons div svg{width:26px;height:26px}
+  .menu .icons .dis{color:#6D6D6D}
+  .menu .it{padding:12px 16px;font-size:15px;display:flex;gap:16px;align-items:center}
+  .menu .it svg{width:24px;height:24px;color:#B3B3B3;flex:none}
+  .menu .sep{height:1px;background:#3a3a3a;margin:4px 0}
+  /* tabs grid */
+  .head{display:flex;align-items:center;padding:8px 14px;gap:10px}
+  .head .ttl{flex:1;font-size:18px;font-weight:800}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:6px 14px}
+  .card{background:#1F1F1F;border-radius:10px;overflow:hidden;border:2px solid transparent}
+  .card.cur{border-color:#E50914}
+  .card .top{display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:11px}
+  .card .top .fav{width:14px;height:14px;border-radius:3px;background:#E50914;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:900}
+  .card .top .n{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .card .top .x{color:#B3B3B3}
+  .card .shot{height:150px;background:linear-gradient(160deg,#1d2a35,#0f1418);position:relative}
+  .card .shot em{position:absolute;bottom:6px;left:6px;background:#E50914;border-radius:8px;font-size:10px;font-style:normal;padding:2px 6px;font-weight:700}
+  .newtab{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:#fff;color:#141414;border-radius:24px;padding:12px 22px;font-weight:800;font-size:14px}
+  /* home */
+  .home{padding:24px 18px}
+  .logo{display:flex;justify-content:center;margin:24px 0 10px}
+  .logo svg{width:84px;height:84px}
+  .search{height:46px;border-radius:23px;background:#2A2A2A;display:flex;align-items:center;padding:0 16px;color:#888;font-size:14px;margin:18px 0 26px}
+  .sec{font-size:13px;font-weight:800;color:#B3B3B3;margin:0 0 12px;display:flex;justify-content:space-between}
+  .sec a{color:#E50914;font-weight:700}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
+  .tile{text-align:center;font-size:11px;color:#ddd}
+  .tile div{width:52px;height:52px;margin:0 auto 6px;border-radius:14px;background:#1F1F1F;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px}
+  .rec{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:13px;border-bottom:1px solid #1f1f1f}
+  .rec span{color:#B3B3B3}
+  .rec .u{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  /* lists */
+  .group{font-size:12px;font-weight:800;color:#B3B3B3;padding:14px 16px 6px}
+  .li{display:flex;align-items:center;gap:12px;padding:10px 16px;font-size:13px}
+  .li .f{width:32px;height:32px;border-radius:8px;background:#1F1F1F;display:flex;align-items:center;justify-content:center;font-weight:900}
+  .li .m{flex:1;overflow:hidden}
+  .li .m b{display:block;font-size:14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .li .m span{color:#B3B3B3;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block}
+  .li .act{color:#B3B3B3;font-size:18px}
+  .clear{color:#E50914;font-size:13px;font-weight:700}
+  .empty{padding:60px 24px;text-align:center;color:#B3B3B3;font-size:14px}
+</style></head><body>
+<!-- Castify logo (same paths as phone/app ic_launcher_foreground.xml) -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="castify-shade" gradientUnits="userSpaceOnUse" x1="32" y1="54" x2="68" y2="54">
+      <stop offset="0" stop-color="#8E0610"/><stop offset="1" stop-color="#E50914"/>
+    </linearGradient>
+    <g id="castify-mark">
+      <path d="M67.5,36.6 A22,22 0 1,0 67.5,71.4" fill="none" stroke="url(#castify-shade)" stroke-width="11"/>
+      <path d="M67.5,36.6 A22,22 0 0,0 39.5,41.9" fill="none" stroke="#E50914" stroke-width="11"/>
+      <path d="M47,60 a4,4 0 0,1 4,4 L47,64 z" fill="#fff"/>
+      <path d="M47,55 a9,9 0 0,1 9,9" fill="none" stroke="#fff" stroke-width="3"/>
+      <path d="M47,50 a14,14 0 0,1 14,14" fill="none" stroke="#fff" stroke-width="3"/>
+    </g>
+  </defs>
+</svg>
+<h1>Castify mobile — proposition (thème Netflix). Sans le vieux bouton ← : le retour Android suffit.</h1>
+<div class="wrap">
+
+  <!-- 1. Browser -->
+  <div class="screen">
+    <p class="label"><b>1.</b> Navigateur : barre du haut</p>
+    <div class="phone">
+      <div class="status"><span>12:50</span><span>▾ ◢ ▮</span></div>
+      <div class="bar">
+        <div class="url"><span class="lock">🔒</span><span class="txt">streamsite.example/movies/1423191-resident-evil</span><span class="star on">★</span></div>
+        <div class="ic red"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg></div>
+        <div class="ic"><div class="tabs"><span>3</span></div></div>
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+      </div>
+      <div class="page">
+        <div class="fake">(site web)</div>
+        <div class="lines" style="padding-top:250px"><div></div><div style="width:70%"></div><div></div><div style="width:50%"></div></div>
+      </div>
+      <div class="fab"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg> 1 video found</div>
+      <div class="np"><div class="row"><div class="thumb"></div><div class="t"><b>MyCast</b><span>25:25 / 1:26:41</span></div><div class="ic">CC</div><div class="round">❚❚</div><div class="ic">■</div></div><div class="prog"><i></i></div></div>
+    </div>
+  </div>
+
+  <!-- 2. Menu -->
+  <div class="screen">
+    <p class="label"><b>2.</b> Menu ⋮ ouvert</p>
+    <div class="phone">
+      <div class="status"><span>12:50</span><span>▾ ◢ ▮</span></div>
+      <div class="bar">
+        <div class="url"><span class="lock">🔒</span><span class="txt">streamsite.example/movies/1423191-resident-evil</span><span class="star on">★</span></div>
+        <div class="ic red"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg></div><div class="ic"><div class="tabs"><span>3</span></div></div><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+      </div>
+      <div class="page"><div class="fake">(site web)</div></div>
+      <div class="scrim"></div>
+      <div class="menu">
+        <div class="icons">
+          <div class="dis" title="Forward (dimmed when there is nothing to go forward to)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
+          <div title="Reload"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></div>
+          <div title="Favorite" style="color:#E50914"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></div>
+        </div>
+        <div class="it"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>New tab</div>
+        <div class="sep"></div>
+        <div class="it"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>Favorites</div>
+        <div class="it"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>History</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Tabs -->
+  <div class="screen">
+    <p class="label"><b>3.</b> Onglets (comme Chrome)</p>
+    <div class="phone">
+      <div class="status"><span>12:50</span><span>▾ ◢ ▮</span></div>
+      <div class="head"><div class="ttl">3 tabs</div><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div></div>
+      <div class="grid">
+        <div class="card cur"><div class="top"><div class="fav">1</div><div class="n">Resident Evil – StreamSite</div><div class="x">✕</div></div><div class="shot"><em>1 video</em></div></div>
+        <div class="card"><div class="top"><div class="fav" style="background:#46a">V</div><div class="n">The Bear S03E02</div><div class="x">✕</div></div><div class="shot"><em>2 videos</em></div></div>
+        <div class="card"><div class="top"><div class="fav" style="background:#555">C</div><div class="n">New tab</div><div class="x">✕</div></div><div class="shot" style="background:#141414;padding:10px;box-sizing:border-box"><div style="font-size:9px;color:#B3B3B3;font-weight:800;margin-bottom:6px">FAVORITES</div><div style="display:flex;gap:6px"><div style="width:22px;height:22px;border-radius:6px;background:#1F1F1F"></div><div style="width:22px;height:22px;border-radius:6px;background:#1F1F1F"></div><div style="width:22px;height:22px;border-radius:6px;background:#1F1F1F"></div></div></div></div>
+      </div>
+      <div class="newtab">＋ New tab</div>
+    </div>
+  </div>
+
+  <!-- 4. Home / new tab -->
+  <div class="screen">
+    <p class="label"><b>4.</b> Accueil (nouvel onglet)</p>
+    <div class="phone">
+      <div class="status"><span>12:50</span><span>▾ ◢ ▮</span></div>
+      <div class="bar">
+        <div class="url"><span class="txt" style="color:#888">Search or type a website</span></div>
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg></div><div class="ic"><div class="tabs"><span>4</span></div></div><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>
+      </div>
+      <div class="home" style="padding-top:4px">
+        <div class="sec" style="margin-top:16px"><span>FAVORITES</span><a>See all</a></div>
+        <div class="tiles">
+          <div class="tile"><div style="color:#E50914">1</div>StreamSite</div>
+          <div class="tile"><div style="color:#6ad">V</div>VideoSite</div>
+          <div class="tile"><div style="color:#fc6">S</div>streamx</div>
+          <div class="tile"><div style="color:#aaa">＋</div>Add</div>
+        </div>
+        <div class="sec"><span>RECENT ADDRESSES</span><a>History</a></div>
+        <div class="rec"><span>🕘</span><div class="u">streamsite.example/movies/1423191-resident-evil</div></div>
+        <div class="rec"><span>🕘</span><div class="u">videosite.example/tv/the-bear/s03e02</div></div>
+        <div class="rec"><span>🔍</span><div class="u">resident evil 2026</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Favorites -->
+  <div class="screen">
+    <p class="label"><b>5.</b> Favoris</p>
+    <div class="phone">
+      <div class="status"><span>12:50</span><span>▾ ◢ ▮</span></div>
+      <div class="head"><div class="ic">←</div><div class="ttl">Favorites</div></div>
+      <div class="li"><div class="f" style="color:#E50914">1</div><div class="m"><b>Resident Evil – StreamSite</b></div><div class="act"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div></div>
+      <div class="li"><div class="f" style="color:#6ad">V</div><div class="m"><b>The Bear – VideoSite</b></div><div class="act"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div></div>
+      <div class="li"><div class="f" style="color:#fc6">S</div><div class="m"><b>StreamX</b></div><div class="act"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div></div>
+      <p class="label" style="padding:16px;font-weight:400"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg> : Open in new tab · Rename · Remove<br>Vide : « No favorites yet. Tap ★ in the address bar to add one. »</p>
+    </div>
+  </div>
+
+  <!-- 6. History -->
+  <div class="screen">
+    <p class="label"><b>6.</b> Historique (adresses tapées)</p>
+    <div class="phone">
+      <div class="status"><span>12:50</span><span>▾ ◢ ▮</span></div>
+      <div class="head"><div class="ic">←</div><div class="ttl">History</div><div class="clear">Clear</div></div>
+      <div style="margin:4px 16px 0;height:42px;border-radius:21px;background:#2A2A2A;display:flex;align-items:center;gap:10px;padding:0 14px;color:#888;font-size:14px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#B3B3B3"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Search history
+      </div>
+      <div class="group">TODAY</div>
+      <div class="li"><div class="f">🕘</div><div class="m"><b>streamsite.example/movies/1423191-resident-evil</b><span>14:05</span></div><div class="act">✕</div></div>
+      <div class="li"><div class="f">🔍</div><div class="m"><b>resident evil 2026</b><span>13:58 · search</span></div><div class="act">✕</div></div>
+      <div class="group">YESTERDAY</div>
+      <div class="li"><div class="f">🕘</div><div class="m"><b>videosite.example/tv/the-bear/s03e02</b><span>21:12</span></div><div class="act">✕</div></div>
+      <div class="group">NOV 2, 2026</div>
+      <div class="li"><div class="f">🕘</div><div class="m"><b>streamx.example</b><span>20:40</span></div><div class="act">✕</div></div>
+      <p class="label" style="padding:16px;font-weight:400">Vide : « No history yet. Addresses you type appear here. »<br>Recherche sans résultat : « No match for “bear 2” ». Max 1000 entrées (les plus anciennes partent).</p>
+    </div>
+  </div>
+
+</div>
+</body></html>

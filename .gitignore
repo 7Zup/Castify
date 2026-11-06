@@ -1,0 +1,13 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.kotlin/
+.externalNativeBuild/
+.cxx/
+
+# Personal info for the agent (see .kiro/steering/privacy.md)
+.kiro/steering/local.md

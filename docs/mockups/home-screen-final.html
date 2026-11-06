@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – home screen (logo centered, favorites, history)</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .intro { color:var(--text2); margin:0 0 28px; font-size:14px; max-width:900px; }
+  .row { display:flex; gap:36px; flex-wrap:wrap; align-items:flex-start; }
+  .option { width:300px; }
+  .option h2 { font-size:16px; margin:0 0 4px; } .option h2 span { color:var(--red); }
+  .option p { color:var(--text2); font-size:12.5px; margin:0 0 12px; min-height:34px; }
+  .phone { width:300px; height:620px; background:var(--bg); border-radius:28px; border:6px solid #2b2b2b; overflow:hidden; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 10px 8px; }
+  .spacer { flex:1; }
+  .ico { width:22px; height:22px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:17px; }
+  .tabs { width:17px; height:17px; border:2px solid var(--text2); border-radius:3px; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .content { padding:4px 14px; }
+  .brand { display:flex; flex-direction:column; align-items:center; margin:6px 0 16px; }
+  .word { font-weight:900; font-size:22px; margin-top:4px; }
+  .search { height:48px; border-radius:26px; background:var(--surface); display:flex; align-items:center; gap:10px; padding:0 16px; color:var(--text2); font-size:13.5px; }
+  .section { display:flex; justify-content:space-between; align-items:center; margin:16px 0 8px; }
+  .section b { font-size:11px; color:var(--text2); letter-spacing:.5px; } .section a { font-size:11px; color:var(--red); font-weight:700; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px 6px; }
+  .fav { display:flex; flex-direction:column; align-items:center; gap:5px; font-size:10px; text-align:center; }
+  .logo { width:50px; height:50px; border-radius:14px; background:var(--surface); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:19px; }
+  .logo.add { color:var(--text2); font-weight:400; font-size:26px; }
+  .item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--surface); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .item .h { color:var(--text2); font-size:14px; width:18px; text-align:center; flex:0 0 auto; }
+  .empty { color:var(--text2); font-size:12px; padding:6px 0; }
+  .note { font-size:11px; color:var(--text2); margin-top:10px; }
+  .c1 { background:#6a1b9a; } .c2 { background:#00695c; } .c3 { background:#1565c0; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="cgrad" gradientUnits="userSpaceOnUse" x1="32" y1="54" x2="68" y2="54">
+      <stop offset="0" stop-color="#8E0610"/><stop offset="1" stop-color="#E50914"/>
+    </linearGradient>
+    <!-- Same paths as phone/app/src/main/res/drawable/ic_launcher_foreground.xml -->
+    <symbol id="mark" viewBox="26 26 50 56">
+      <path d="M67.5,36.6 A22,22 0 1,0 67.5,71.4" fill="none" stroke="url(#cgrad)" stroke-width="11"/>
+      <path d="M67.5,36.6 A22,22 0 0,0 39.5,41.9" fill="none" stroke="#E50914" stroke-width="11"/>
+      <path d="M47,60 a4,4 0 0,1 4,4 L47,64 z" fill="#fff"/>
+      <path d="M47,55 a9,9 0 0,1 9,9" fill="none" stroke="#fff" stroke-width="3"/>
+      <path d="M47,50 a14,14 0 0,1 14,14" fill="none" stroke="#fff" stroke-width="3"/>
+    </symbol>
+  </defs>
+</svg>
+
+<h1>Home screen: logo centered, favorites, history</h1>
+<p class="intro">Try 1 of the logo mockup, without Continue watching, with the recent history under the favorites. On the home screen the address field moves under the logo; on a page the usual top bar comes back.</p>
+
+<div class="row">
+
+  <div class="option">
+    <h2><span>Home</span> · populated</h2>
+    <p>Favorites (up to 7 + Add), then the 5 most recent visited pages.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><span class="spacer"></span><div class="ico">⌁</div><div class="tabs">2</div><div class="ico">⋮</div></div>
+      <div class="content">
+        <div class="brand"><svg width="64" height="72"><use href="#mark"/></svg><div class="word">Castify</div></div>
+        <div class="search">🔍 Search or type a website</div>
+        <div class="section"><b>FAVORITES</b><a>See all</a></div>
+        <div class="grid">
+          <div class="fav"><div class="logo c1">T</div>MovieSite</div>
+          <div class="fav"><div class="logo c2">1</div>TubeSite</div>
+          <div class="fav"><div class="logo c3">V</div>VideoSite</div>
+          <div class="fav"><div class="logo add">+</div>Add</div>
+        </div>
+        <div class="section"><b>RECENT</b><a>History</a></div>
+        <div class="item"><span class="h">↺</span>www.tubesite.example/watch/60573/4/7</div>
+        <div class="item"><span class="h">↺</span>moviesite.example</div>
+        <div class="item"><span class="h">🔍</span>resident evil 2026</div>
+        <div class="item"><span class="h">↺</span>videosite.example/tv/the-bear</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option">
+    <h2><span>Home</span> · first launch</h2>
+    <p>No favorite and no history yet.</p>
+    <div class="phone">
+      <div class="status"><span>22:16</span><span>▼ ◢ ▮</span></div>
+      <div class="bar"><span class="spacer"></span><div class="ico">⌁</div><div class="tabs">1</div><div class="ico">⋮</div></div>
+      <div class="content">
+        <div class="brand"><svg width="64" height="72"><use href="#mark"/></svg><div class="word">Castify</div></div>
+        <div class="search">🔍 Search or type a website</div>
+        <div class="section"><b>FAVORITES</b><a></a></div>
+        <div class="grid"><div class="fav"><div class="logo add">+</div>Add</div></div>
+        <div class="section"><b>RECENT</b><a></a></div>
+        <div class="empty">Pages you visit will show up here.</div>
+      </div>
+    </div>
+    <div class="note">Tap “Add”: “Open a page, then tap ★ in the menu to add it” (as today).</div>
+  </div>
+
+</div>
+</body>
+</html>
