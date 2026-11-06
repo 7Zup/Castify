@@ -45,9 +45,11 @@ _Last updated: 11/06/2026_
   `docs/features/app-update.md`, mockup `docs/mockups/app-update.html`, publishing
   `docs/releasing.md`): silent check of the GitHub release at launch, `Update` / `Not now`
   dialog, download + Android install, `Retry` on failure, TV welcome screen only; `v0.5.0`
-  bottom right of both home screens. Built, unit-tested; not checked on a device yet. Next:
-  install v0.5.0 by adb on the phone and both TVs (ask before the TVs), publish `v0.5.0`,
-  then a test `v0.5.1`. No release published yet.
+  bottom right of both home screens. Merged (PR #2). Releases `v0.5.0` and test `v0.5.1`
+  published 11/06/2026. v0.5.0 installed by adb on the phone (label OK, no dialog on
+  v0.5.0) and the 4K Chromecast; the HD Chromecast still on the old build (was playing a
+  movie). To check by the user: the v0.5.1 update flow on the phone and the 4K TV; then
+  install v0.5.0 by adb on the HD Chromecast when idle.
 - **Offline / error screens** (branch `feat/offline-errors`, mockup `docs/mockups/offline-errors.html`):
   phone P1–P4 (no internet, site unreachable, home banner, TV unreachable snackbar), TV T1–T2
   (`Connection lost` / `This video can't be played`, Retry / Home) and welcome states Standby /
