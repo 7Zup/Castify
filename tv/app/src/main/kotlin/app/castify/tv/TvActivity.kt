@@ -26,6 +26,12 @@ class TvActivity : ComponentActivity() {
         viewModel.start(deviceName())
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Back from Android's "Install unknown apps" screen: the update goes on by itself.
+        container.updater.onResume()
+    }
+
     override fun onStop() {
         viewModel.stop()
         super.onStop()

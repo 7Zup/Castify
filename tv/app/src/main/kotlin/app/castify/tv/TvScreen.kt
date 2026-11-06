@@ -591,7 +591,7 @@ private fun UpdateDialog(update: AppUpdater.State, focus: UpdateButton, current:
                         ErrorButtonView("Not now", focus == UpdateButton.NOT_NOW)
                     }
                 }
-                AppUpdater.State.Idle, is AppUpdater.State.Installing -> Unit
+                AppUpdater.State.Idle, is AppUpdater.State.WaitingPermission, is AppUpdater.State.Installing -> Unit
             }
         }
     }

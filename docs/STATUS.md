@@ -21,7 +21,7 @@ _Last updated: 11/06/2026_
   at launch), favorites (★, name only), history of every visited page (max 1000, search),
   home screen, tight top bar (Cast, tabs counter, ⋮). Spec `docs/features/browser.md`, mockup
   `docs/mockups/mobile-browser.html`. Validated by the user on the phone.
-- 111 unit tests green. Both apps installed on the user's devices.
+- 116 unit tests green. Both apps installed on the user's devices.
 
 ## Repo
 
@@ -50,6 +50,9 @@ _Last updated: 11/06/2026_
   v0.5.0) and the 4K Chromecast; the HD Chromecast still on the old build (was playing a
   movie). To check by the user: the v0.5.1 update flow on the phone and the 4K TV; then
   install v0.5.0 by adb on the HD Chromecast when idle.
+  The user updated to v0.5.1 (11/06/2026); on the phone Android killed the app when
+  "Install unknown apps" was switched on (download twice). Fix: branch
+  `fix/update-permission-first` (permission screen before the download, resumes by itself).
 - **Offline / error screens** (branch `feat/offline-errors`, mockup `docs/mockups/offline-errors.html`):
   phone P1–P4 (no internet, site unreachable, home banner, TV unreachable snackbar), TV T1–T2
   (`Connection lost` / `This video can't be played`, Retry / Home) and welcome states Standby /

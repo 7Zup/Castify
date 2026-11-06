@@ -66,7 +66,7 @@ fun UpdateDialog(updater: AppUpdater) {
             confirm = "Retry" to updater::accept,
             dismiss = "Not now" to updater::dismiss,
         )
-        State.Idle, is State.Installing -> Unit
+        State.Idle, is State.WaitingPermission, is State.Installing -> Unit
     }
 }
 

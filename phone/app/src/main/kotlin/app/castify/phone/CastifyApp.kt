@@ -37,6 +37,7 @@ import app.castify.domain.update.AppUpdater
 import app.castify.domain.update.AppVersion
 import app.castify.update.ApkInstaller
 import app.castify.update.GitHubReleaseSource
+import app.castify.update.PrefsAcceptedUpdateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -86,7 +87,7 @@ class AppContainer(app: Application) {
 
     // In-app update from the public GitHub releases (docs/features/app-update.md).
     private val apkInstaller = ApkInstaller(app)
-    val updater = AppUpdater(installedVersion(app), AppKind.PHONE, GitHubReleaseSource(UPDATE_REPO), apkInstaller, appScope)
+    val updater = AppUpdater(installedVersion(app), AppKind.PHONE, GitHubReleaseSource(UPDATE_REPO), apkInstaller, PrefsAcceptedUpdateStore(app), appScope)
 
     /** Each launch: silent check (a leftover APK from a previous update is removed first). */
     fun checkForUpdate() {

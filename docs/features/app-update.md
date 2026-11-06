@@ -14,8 +14,13 @@ Mockup: `docs/mockups/app-update.html` (P0–P4 phone, T0–T3 TV). Publishing: 
   (`castify-phone.apk` / `castify-tv.apk`): `Update available` · `Update` / `Not now`.
   `Not now` closes it; the next launch asks again.
 - **Download** with a progress bar (MB) and `Cancel` (a tap outside does not cancel).
-- **Install**: Android's own confirmation. The first time, Android first asks to allow
-  "Install unknown apps" for Castify, then comes back to the install. On Android 12+ (the
+- **Permission first**: while "Install unknown apps" is off for Castify, `Update` opens that
+  Android switch before downloading. Back with it on, the download starts by itself; back
+  with it off, the dialog shows again. Android 8–10 kill the app when the switch goes on:
+  the accepted version is kept in the preferences, and the next launch resumes the download
+  without asking again (fixes "download, allow, relaunch, download again" seen on the phone
+  on 11/06/2026). No such screen on the device → the install asks by itself.
+- **Install**: Android's own confirmation. On Android 12+ (the
   TV) the confirmation is skipped from the 2nd update on (Castify is then its own installer
   of record); the phone (Android 10) always asks. The app restarts on the new version.
 - **Failure** (download dropped, install refused): `Update failed` · `Retry` / `Not now`.
@@ -29,11 +34,12 @@ Mockup: `docs/mockups/app-update.html` (P0–P4 phone, T0–T3 TV). Publishing: 
 
 - Domain (`core/domain/.../update/`): `AppVersion` (parse `v0.5.0`, numeric compare),
   `AppKind` (which APK), `AppUpdate.from(release, current, kind)`, the `AppUpdater` state
-  machine (`Idle` → `Available` → `Downloading` → `Installing`, or `Failed`), ports
-  `UpdateSource` and `UpdateInstaller`.
+  machine (`Idle` → `Available` → [`WaitingPermission`] → `Downloading` → `Installing`, or
+  `Failed`), ports `UpdateSource`, `UpdateInstaller`, `AcceptedUpdateStore`.
 - Adapters (`:shared:update`, used by both apps): `GitHubReleaseSource` (HTTP + `org.json`),
   `ApkInstaller` (download into `cacheDir/update/`, then `PackageInstaller` session) and
-  `InstallResultReceiver` (starts Android's confirmation, reports the outcome).
+  `InstallResultReceiver` (starts Android's confirmation, reports the outcome),
+  `PrefsAcceptedUpdateStore`.
 - Version: one `castify.version` in `gradle.properties` for both apps; `versionCode` is
   derived (`0.5.0` → 500).
 
