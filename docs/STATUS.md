@@ -23,6 +23,12 @@ _Last updated: 11/06/2026_
   `docs/mockups/mobile-browser.html`. Validated by the user on the phone.
 - 95 unit tests green. Both apps installed on the user's devices.
 
+## Repo
+
+- Public since 11/06/2026, PolyForm Noncommercial 1.0.0 license, history restarted at one
+  commit (PR numbers mentioned in these docs refer to the earlier private repo). Nothing
+  personal in tracked files: `.kiro/steering/privacy.md`.
+
 ## Devices
 
 - Models, serials, IPs and TV names: gitignored `.kiro/steering/local.md` (never in the
