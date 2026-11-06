@@ -19,3 +19,9 @@
   is `docs/ROADMAP.md` + `docs/STATUS.md`.
 - Commit messages in English, imperative mood, small focused commits.
 - Before starting a new feature: `git fetch`, branch from an up-to-date `origin/main`.
+- **Releases** (`docs/releasing.md`): after each merge, tell the user how many merged
+  changes are unreleased and recommend publishing once one is user-visible (feature or bug
+  fix). Publish only when the user asks, with `scripts/release.fish <version>` (its version
+  bump PR is merged by the script; that is covered by the user's request).
+- The PR numbers in docs written before 11/06/2026 refer to the old private repo (history
+  restarted when the repo went public).

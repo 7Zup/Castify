@@ -235,88 +235,100 @@ fun HomeScreen(
     onAddFavoriteHint: () -> Unit,
     offline: Boolean = false,
     onRetryNetwork: () -> Unit = {},
+    /** `v0.5.0`, bottom right in the disabled gray (mockup `app-update.html`, P0). */
+    version: String = "",
 ) {
     val focusManager = LocalFocusManager.current
     val submit = { onSubmit(); focusManager.clearFocus() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 4.dp)) {
-        item {
-            Column(Modifier.fillMaxWidth().padding(bottom = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                // The launcher foreground has the mark in its central ~46% (adaptive icon safe zone).
-                Image(
-                    painterResource(R.drawable.ic_launcher_foreground),
-                    contentDescription = null,
-                    modifier = Modifier.size(150.dp).layout { measurable, constraints ->
-                        // Crop the empty margin around the mark: keep the middle 96 dp.
-                        val placeable = measurable.measure(constraints)
-                        val crop = 27.dp.roundToPx()
-                        layout(placeable.width, placeable.height - 2 * crop) { placeable.place(0, -crop) }
-                    },
-                )
-                Text("Castify", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 20.dp))
-                TextField(
-                    value = address,
-                    onValueChange = onAddressChange,
-                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Address bar" },
-                    singleLine = true,
-                    shape = RoundedCornerShape(28.dp),
-                    placeholder = { Text("Search or type a website") },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = CastifyColors.TextSecondary) },
-                    trailingIcon = if (address.isNotBlank()) ({
-                        IconButton(onClick = submit) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Go") }
-                    }) else null,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = CastifyColors.Surface,
-                        unfocusedContainerColor = CastifyColors.Surface,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                    ),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = { submit() }),
-                )
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 4.dp, bottom = 28.dp)) {
+            item {
+                Column(Modifier.fillMaxWidth().padding(bottom = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    // The launcher foreground has the mark in its central ~46% (adaptive icon safe zone).
+                    Image(
+                        painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = null,
+                        modifier = Modifier.size(150.dp).layout { measurable, constraints ->
+                            // Crop the empty margin around the mark: keep the middle 96 dp.
+                            val placeable = measurable.measure(constraints)
+                            val crop = 27.dp.roundToPx()
+                            layout(placeable.width, placeable.height - 2 * crop) { placeable.place(0, -crop) }
+                        },
+                    )
+                    Text("Castify", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 20.dp))
+                    TextField(
+                        value = address,
+                        onValueChange = onAddressChange,
+                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Address bar" },
+                        singleLine = true,
+                        shape = RoundedCornerShape(28.dp),
+                        placeholder = { Text("Search or type a website") },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = CastifyColors.TextSecondary) },
+                        trailingIcon = if (address.isNotBlank()) ({
+                            IconButton(onClick = submit) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Go") }
+                        }) else null,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = CastifyColors.Surface,
+                            unfocusedContainerColor = CastifyColors.Surface,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { submit() }),
+                    )
+                }
             }
-        }
-        if (offline) item { OfflineBanner(onRetryNetwork, Modifier.padding(bottom = 18.dp)) }
-        item { SectionTitle("FAVORITES", "See all", onAllFavorites) }
-        item {
-            val tiles = favorites.take(7)
-            Column(Modifier.padding(bottom = 26.dp)) {
-                (tiles.map { it as Any } + "add").chunked(4).forEach { row ->
-                    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                        row.forEach { item ->
-                            Column(
-                                Modifier.weight(1f).clickable {
-                                    if (item is Favorite) onOpenUrl(item.url) else onAddFavoriteHint()
-                                },
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                if (item is Favorite) {
-                                    SiteTile(item.title, item.url, 52)
-                                    TileLabel(item.title)
-                                } else {
-                                    Box(Modifier.size(52.dp).background(CastifyColors.Surface, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Filled.Add, contentDescription = null, tint = CastifyColors.TextSecondary)
+            if (offline) item { OfflineBanner(onRetryNetwork, Modifier.padding(bottom = 18.dp)) }
+            item { SectionTitle("FAVORITES", "See all", onAllFavorites) }
+            item {
+                val tiles = favorites.take(7)
+                Column(Modifier.padding(bottom = 26.dp)) {
+                    (tiles.map { it as Any } + "add").chunked(4).forEach { row ->
+                        Row(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                            row.forEach { item ->
+                                Column(
+                                    Modifier.weight(1f).clickable {
+                                        if (item is Favorite) onOpenUrl(item.url) else onAddFavoriteHint()
+                                    },
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    if (item is Favorite) {
+                                        SiteTile(item.title, item.url, 52)
+                                        TileLabel(item.title)
+                                    } else {
+                                        Box(Modifier.size(52.dp).background(CastifyColors.Surface, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Filled.Add, contentDescription = null, tint = CastifyColors.TextSecondary)
+                                        }
+                                        TileLabel("Add")
                                     }
-                                    TileLabel("Add")
                                 }
                             }
+                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                         }
-                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
-        }
-        item { SectionTitle("RECENT", "History", onHistory) }
-        if (recent.isEmpty()) item { EmptyText("Pages you visit will show up here.") }
-        items(recent.take(5), key = { it.url }) { entry ->
-            Row(
-                Modifier.fillMaxWidth().clickable { onOpenUrl(entry.url) }.padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(if (entry.isSearch) Icons.Filled.Search else Icons.Filled.History, contentDescription = null, tint = CastifyColors.TextSecondary)
-                Text(entry.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            item { SectionTitle("RECENT", "History", onHistory) }
+            if (recent.isEmpty()) item { EmptyText("Pages you visit will show up here.") }
+            items(recent.take(5), key = { it.url }) { entry ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpenUrl(entry.url) }.padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(if (entry.isSearch) Icons.Filled.Search else Icons.Filled.History, contentDescription = null, tint = CastifyColors.TextSecondary)
+                    Text(entry.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                HorizontalDivider(color = CastifyColors.Surface)
             }
-            HorizontalDivider(color = CastifyColors.Surface)
+        }
+        if (version.isNotEmpty()) {
+            Text(
+                version,
+                color = CastifyColors.Disabled,
+                fontSize = 11.sp,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 8.dp),
+            )
         }
     }
 }

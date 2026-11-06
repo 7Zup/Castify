@@ -21,7 +21,7 @@ _Last updated: 11/06/2026_
   at launch), favorites (★, name only), history of every visited page (max 1000, search),
   home screen, tight top bar (Cast, tabs counter, ⋮). Spec `docs/features/browser.md`, mockup
   `docs/mockups/mobile-browser.html`. Validated by the user on the phone.
-- 95 unit tests green. Both apps installed on the user's devices.
+- 111 unit tests green. Both apps installed on the user's devices.
 
 ## Devices
 
@@ -35,6 +35,13 @@ _Last updated: 11/06/2026_
 
 ## In progress
 
+- **In-app update + version label** (branch `feat/app-update`, spec
+  `docs/features/app-update.md`, mockup `docs/mockups/app-update.html`, publishing
+  `docs/releasing.md`): silent check of the GitHub release at launch, `Update` / `Not now`
+  dialog, download + Android install, `Retry` on failure, TV welcome screen only; `v0.5.0`
+  bottom right of both home screens. Built, unit-tested; not checked on a device yet. Next:
+  install v0.5.0 by adb on the phone and both TVs (ask before the TVs), publish `v0.5.0`,
+  then a test `v0.5.1`. No release published yet.
 - **Offline / error screens** (branch `feat/offline-errors`, mockup `docs/mockups/offline-errors.html`):
   phone P1–P4 (no internet, site unreachable, home banner, TV unreachable snackbar), TV T1–T2
   (`Connection lost` / `This video can't be played`, Retry / Home) and welcome states Standby /

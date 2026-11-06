@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import app.castify.phone.ui.CastifyTheme
+import app.castify.phone.ui.UpdateDialog
 
 class MainActivity : ComponentActivity() {
 
@@ -15,17 +16,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        (application as CastifyApp).container.cleanPreviews()
+        val container = (application as CastifyApp).container
+        container.cleanPreviews()
+        // A launch (not a restore): silent update check, the dialog shows if there is one.
+        if (savedInstanceState == null) container.checkForUpdate()
         enableEdgeToEdge()
         setContent {
             CastifyTheme {
-                val container = (application as CastifyApp).container
                 BrowserScreen(
                     viewModel,
                     installSniffer = { webView -> container.installSniffer(webView, viewModel) },
                     savePreview = container::savePreview,
                     loadPreview = container::loadPreview,
+                    version = container.updater.currentVersion.label,
                 )
+                UpdateDialog(container.updater)
             }
         }
     }

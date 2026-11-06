@@ -38,6 +38,10 @@ Answers already given, to reuse at kickoff:
   audio track listing or selection anywhere (TV, phone, protocol; the HLS parser ignores
   `#EXT-X-MEDIA TYPE=AUDIO`). To scope with the user when they ask.
 
+- **In-app update, later** (scoped 11/06/2026, v1 built): the phone pushes the update to the
+  TV; release notes in the dialog; smaller APKs (minified release build, the TV debug APK is
+  ~85 MB); a "Check for updates" button in a settings screen.
+
 - Smart buffer policy: short buffer at start; after 1 min of watching, prefetch
   aggressively up to a cap (proposal: 1 GB of disk cache, configurable); clean up
   afterwards.
