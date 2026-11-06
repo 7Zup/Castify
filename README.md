@@ -5,9 +5,7 @@ phone: it finds the video in the page and sends it to your Chromecast with Googl
 plays it on its own. No screen mirroring, and your phone can sleep.
 
 <p align="center">
-  <img src="docs/images/phone-home.png" alt="Castify on the phone: home screen with favorites and recent pages" height="420">
-  &nbsp;&nbsp;
-  <img src="docs/images/tv-welcome.png" alt="Castify TV: welcome screen, ready to cast" height="420">
+  <img src="docs/images/castify-overview.png" alt="Castify on the phone sends the video over Wi-Fi to Castify TV on a Chromecast with Google TV" width="900">
 </p>
 
 You need two apps: **Castify TV** on the TV and **Castify** on the phone. Install the TV
