@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – README image: phone home</title>
+<!-- Rendered to docs/images/phone-home.png (360x740 CSS px at 3x). Placeholder data only. -->
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; }
+  * { box-sizing:border-box; }
+  body { margin:0; width:360px; height:740px; background:var(--bg); color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; position:relative; overflow:hidden; }
+  .status { height:26px; font-size:12px; color:var(--text); display:flex; justify-content:space-between; padding:6px 16px 0; }
+  .bar { display:flex; align-items:center; justify-content:flex-end; gap:14px; padding:10px 14px; }
+  .ico { color:var(--text); font-size:20px; } .tabs { width:20px; height:20px; border:2px solid var(--text); border-radius:4px; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .content { padding:0 18px; }
+  .brand { display:flex; flex-direction:column; align-items:center; margin:18px 0 20px; }
+  .word { font-weight:900; font-size:26px; margin-top:8px; }
+  .search { height:56px; border-radius:28px; background:var(--surface); display:flex; align-items:center; gap:14px; padding:0 18px; color:var(--text2); font-size:15px; }
+  .section { display:flex; justify-content:space-between; margin:26px 0 12px; font-size:13px; font-weight:800; }
+  .section b { color:var(--text2); } .section a { color:var(--red); }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .fav { display:flex; flex-direction:column; align-items:center; gap:6px; font-size:11px; }
+  .logo { width:52px; height:52px; border-radius:13px; background:var(--surface); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:22px; }
+  .item { display:flex; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid var(--surface); font-size:14px; }
+  .item span { color:var(--text2); width:20px; text-align:center; }
+  .ver { position:absolute; right:14px; bottom:10px; font-size:11px; color:var(--dis); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="cgrad" gradientUnits="userSpaceOnUse" x1="32" y1="54" x2="68" y2="54"><stop offset="0" stop-color="#8E0610"/><stop offset="1" stop-color="#E50914"/></linearGradient>
+  <symbol id="mark" viewBox="26 26 50 56">
+    <path d="M67.5,36.6 A22,22 0 1,0 67.5,71.4" fill="none" stroke="url(#cgrad)" stroke-width="11"/>
+    <path d="M67.5,36.6 A22,22 0 0,0 39.5,41.9" fill="none" stroke="#E50914" stroke-width="11"/>
+    <path d="M47,60 a4,4 0 0,1 4,4 L47,64 z" fill="#fff"/><path d="M47,55 a9,9 0 0,1 9,9" fill="none" stroke="#fff" stroke-width="3"/><path d="M47,50 a14,14 0 0,1 14,14" fill="none" stroke="#fff" stroke-width="3"/>
+  </symbol></defs></svg>
+<div class="status"><span>21:04</span><span>▼ ◢ ▮</span></div>
+<div class="bar"><span class="ico"><svg viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="currentColor" style="vertical-align:-0.2em"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg></span><span class="tabs">2</span><span class="ico">⋮</span></div>
+<div class="content">
+  <div class="brand"><svg width="84" height="94"><use href="#mark"/></svg><div class="word">Castify</div></div>
+  <div class="search">🔍&nbsp; Search or type a website</div>
+  <div class="section"><b>FAVORITES</b><a>See all</a></div>
+  <div class="grid">
+    <div class="fav"><div class="logo" style="color:#B388FF">M</div>MovieSite</div>
+    <div class="fav"><div class="logo" style="color:#69F0AE">S</div>StreamSite</div>
+    <div class="fav"><div class="logo" style="color:#82B1FF">V</div>VideoSite</div>
+    <div class="fav"><div class="logo" style="color:var(--text2);font-weight:400;font-size:28px">+</div>Add</div>
+  </div>
+  <div class="section"><b>RECENT</b><a>History</a></div>
+  <div class="item"><span>↺</span>streamsite.example/movies/42</div>
+  <div class="item"><span>↺</span>videosite.example/tv/s01e02</div>
+  <div class="item"><span>🔍</span>big buck bunny</div>
+  <div class="item"><span>↺</span>moviesite.example</div>
+</div>
+</body>
+</html>
