@@ -20,4 +20,5 @@ dependencies {
     api(project(":core:domain"))
     implementation(project(":core:protocol"))
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.webkit)
 }

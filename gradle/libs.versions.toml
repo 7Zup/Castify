@@ -10,6 +10,7 @@ media3 = "1.11.1"
 ktor = "3.6.1"
 junit = "4.13.2"
 coil = "3.5.0"
+webkit = "1.16.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -33,6 +34,7 @@ ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
 junit = { module = "junit:junit", version.ref = "junit" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "webkit" }
 coil-network = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 
 [plugins]

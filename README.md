@@ -45,7 +45,7 @@ Android 8 or newer.
 
 1. Phone and TV on the **same Wi-Fi**; open **Castify TV** on the TV.
 2. On the phone, open Castify, tap the **Cast** button and pick your TV.
-3. Go to a website, start the video, tap **Videos found**, pick the quality.
+3. Go to a website, start the video, tap the video icon at the top (its red badge counts the videos found), pick the quality.
 
 Phone and TV now play on their own: you can lock your phone.
 

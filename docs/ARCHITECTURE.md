@@ -8,7 +8,7 @@ Decisions: ADR 0001 (native Android), ADR 0002 (own TV app instead of a Cast rec
 | --- | --- | --- | --- |
 | `:core:domain` | Pure Kotlin/JVM | coroutines only | Models, `browser/` (tabs, history, favorites), `StreamClassifier`, `VideoCatalog`, `InspectStream` + HLS/DASH parsers + `Mp4Probe` + `QualityLabel`, `subtitles/` (classifier, menu, language names), `update/` (`AppVersion`, `AppUpdater`), `TvSession`, `BufferPolicy`, `RemoteControl`, use cases, ports |
 | `:core:protocol` | Pure Kotlin/JVM | `:core:domain`, kotlinx.serialization | `PlayRequest` / `ErrorResponse`, mapping, service type & port |
-| `:phone:data` | Android library | `:core:*` | `SniffingWebViewClient` (+ `BrowserEvents`), `HttpManifestFetcher`, `UdpTvDiscovery`, `NsdTvDiscovery`, `NsdCastDeviceScanner`, `NsdResolver` (shared mDNS resolve queue), `WifiNetwork`, `HttpTvClient`, `BrowserStores` (tabs, history, favorites, previews), `PrefsLastUrlStore` (legacy migration) |
+| `:phone:data` | Android library | `:core:*` | `SniffingWebViewClient` (+ `BrowserEvents`), `HttpManifestFetcher`, `UdpTvDiscovery`, `NsdTvDiscovery`, `NsdCastDeviceScanner`, `NsdResolver` (shared mDNS resolve queue), `WifiNetwork`, `HttpTvClient`, `BrowserStores` (tabs, history, favorites, previews, `TabHistoryStore` back/forward per tab), `PageMedia` (pauses media in every frame, `androidx.webkit`), `PrefsLastUrlStore` (legacy migration) |
 | `:phone:app` | Android app | `:core:domain`, `:phone:data`, `:shared:update`, Coil, Media3 session | `AppContainer` (DI), `BrowserViewModel`, `BrowserScreen`, `ui/` (theme, remote, now-playing bar), `RemoteControlService` (media notification) |
 | `:tv:data` | Android library | `:core:*`, Ktor, Media3 | `LanCastReceiver` (HTTP + NSD), `ExoPlayerAdapter` |
 | `:shared:update` | Android library | `:core:domain` | In-app update: `GitHubReleaseSource`, `ApkInstaller` + `InstallResultReceiver` (docs/features/app-update.md) |
@@ -20,7 +20,7 @@ Decisions: ADR 0001 (native Android), ADR 0002 (own TV app instead of a Cast rec
 | --- | --- | --- |
 | `ManifestFetcher` | phone | `HttpManifestFetcher` |
 | `TvDiscovery` | phone | `UdpTvDiscovery`, `NsdTvDiscovery` (merged by `ObserveTvDevices`) |
-| `CastDeviceScanner` | phone | `NsdCastDeviceScanner` (`_googlecast._tcp`, merged with the Castify TVs by `ObserveNearbyTvs`) |
+| `CastDeviceScanner` | phone | `NsdCastDeviceScanner` (`_googlecast._tcp`, merged with the Castify TVs by `ObserveNearbyTvs`, which also probes each Castify TV's `/status` every 3 s: `Not responding`) |
 | `TvClient` (play, status, control) | phone | `HttpTvClient` |
 | `TabStore` / `HistoryStore` / `FavoriteStore` | phone | `PrefsTabStore` / `PrefsHistoryStore` / `PrefsFavoriteStore` |
 | `CastReceiver` | TV | `LanCastReceiver` |
@@ -44,7 +44,8 @@ flowchart LR
     KEY[Remote keys] --> VM
   end
   CL -- "POST /play {url, headers}" --> SV
-  TS[TvSession] -- "GET /status every 1-3 s, POST /control" --> SV
+  TS[TvSession] -- "GET /status every 1-3 s (first answer = connected), POST /control" --> SV
+  ND -. "TV unreachable: follow it to a new address" .-> TS
   UI --> TS
   TS --> NS[RemoteControlService notification]
   ND -. "UDP 47801 broadcast + mDNS _castify._tcp" .- SV

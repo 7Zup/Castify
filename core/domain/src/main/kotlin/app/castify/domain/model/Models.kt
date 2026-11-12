@@ -145,7 +145,7 @@ data class CastDevice(
 enum class DeviceKind { TV, SPEAKER }
 
 /** Whether the user can play on a listed device right now. */
-enum class TvStatus { READY, APP_NOT_LAUNCHED }
+enum class TvStatus { READY, NOT_RESPONDING, APP_NOT_LAUNCHED }
 
 /** One line of the "Play on" list. [castify] is set when the Castify TV app answers. */
 data class NearbyTv(
@@ -153,8 +153,14 @@ data class NearbyTv(
     val kind: DeviceKind,
     val castify: TvDevice?,
     val host: String,
+    /** False = the Castify TV was found but does not answer right now ("Not responding"). */
+    val responding: Boolean = true,
 ) {
-    val status: TvStatus get() = if (castify != null) TvStatus.READY else TvStatus.APP_NOT_LAUNCHED
+    val status: TvStatus get() = when {
+        castify == null -> TvStatus.APP_NOT_LAUNCHED
+        !responding -> TvStatus.NOT_RESPONDING
+        else -> TvStatus.READY
+    }
     val id: String get() = castify?.id ?: host
 }
 

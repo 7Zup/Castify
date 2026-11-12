@@ -2,8 +2,10 @@
 
 ## Behavior
 
-- Every request of the page is reported to the domain. The floating button shows
-  `No video` or `N videos found`. The list resets on each new page.
+- Every request of the page is reported to the domain. A video icon in the top bar, left of
+  Cast, shows the count in a red badge (no badge = no video). It never covers the page: the
+  floating `N videos found` button it replaced hid the sites' own player buttons (user's pick,
+  option A of `docs/mockups/videos-button.html`). The list resets on each new page.
 - **Ads are hidden**: streams from known ad hosts never appear.
 - Tapping the button opens a sheet with one card per video, and nothing else:
 

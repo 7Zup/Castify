@@ -6,6 +6,35 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.animate
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.graphics.TransformOrigin
+import kotlinx.coroutines.Job
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.util.lerp
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +54,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
@@ -62,32 +92,120 @@ import app.castify.domain.session.TvSession
 import kotlinx.coroutines.delay
 
 /**
+ * The now-playing bar and the full remote are one surface: 0 = bar, 1 = full remote. The
+ * chevrons (⌃ on the bar, ⌄ on the remote) animate it with a spring. No drag (user choice).
+ */
+@Stable
+class RemoteExpansion internal constructor(private val scope: CoroutineScope) {
+    /**
+     * Plain state written by [animate]: frames of the move only redraw (see [ExpandingPlayer]).
+     */
+    private var current by mutableFloatStateOf(0f)
+    private var animation: Job? = null
+
+    /** Height of the mini player: where the growing surface starts. */
+    internal var barHeightPx by mutableFloatStateOf(0f)
+
+    /** 0 = bar, 1 = full remote. Read it in draw / layout lambdas, not in composition. */
+    val value: Float get() = current
+
+    /** Only flips at 0: reading it in composition does not recompose every frame. */
+    val visible: Boolean by derivedStateOf { current > 0f }
+
+    /** The bar's controls are still (partly) visible, in the first third of the move. */
+    internal val barShown: Boolean by derivedStateOf { current < BAR_FADE_END }
+
+    fun open() = animateTo(1f, 0f)
+    fun close() = animateTo(0f, 0f)
+    fun snapClosed() { animation?.cancel(); current = 0f }
+
+    private fun animateTo(target: Float, velocity: Float) {
+        animation?.cancel()
+        animation = scope.launch {
+            animate(current, target, velocity, SPRING) { v, _ -> current = v.coerceIn(0f, 1f) }
+        }
+    }
+
+    private companion object {
+        val SPRING = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+    }
+}
+
+@Composable
+fun rememberRemoteExpansion(): RemoteExpansion {
+    val scope = rememberCoroutineScope()
+    val expansion = remember { RemoteExpansion(scope) }
+    return expansion
+}
+
+/**
+ * Centered chevron on top of the surface: ⌃ on the bar, ⌄ on the remote (user's pick over the
+ * drag handle). Not a button of its own: the whole strip around it is the tap target and
+ * highlights as one (user rule).
+ */
+@Composable
+private fun Chevron(up: Boolean, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().height(CHEVRON_HEIGHT), contentAlignment = Alignment.Center) {
+        Icon(
+            if (up) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+            tint = CastifyColors.TextSecondary,
+            modifier = Modifier.size(CHEVRON_HEIGHT),
+        )
+    }
+}
+
+/**
  * Bottom bar while the connected TV plays something: thumbnail, play/pause, stop and a
- * draggable progress bar, usable without opening the full remote. Tapping the thumbnail
- * or the text opens the full remote (±10 s).
+ * draggable progress bar, usable without opening the full remote. A ⌃ on top, the thumbnail
+ * or the text grow it into the full remote ([ExpandingPlayer]). While it grows, [ExpandingPlayer] draws the bar in its place.
  */
 @Composable
 fun NowPlayingBar(
     tv: TvSession.State,
-    onOpen: () -> Unit,
+    expansion: RemoteExpansion,
     onCommand: (PlayerCommand) -> Unit,
     onSubtitles: () -> Unit,
 ) {
     val now = tv.nowPlaying ?: return
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .onSizeChanged { expansion.barHeightPx = it.height.toFloat() }
+            .graphicsLayer { alpha = if (expansion.visible) 0f else 1f }
+            .background(CastifyColors.Surface),
+    ) {
+        BarContent(tv, now, expansion::open, onCommand, onSubtitles, showThumbnail = true)
+    }
+}
+
+/** ⌃, thumbnail (or its empty slot), TV name + time, CC / play-pause / stop, progress. */
+@Composable
+private fun BarContent(
+    tv: TvSession.State,
+    now: NowPlaying,
+    onOpen: () -> Unit,
+    onCommand: (PlayerCommand) -> Unit,
+    onSubtitles: () -> Unit,
+    showThumbnail: Boolean,
+) {
+    // The whole bar is one tap target (one highlight); its buttons and progress bar keep theirs.
     Column(
         Modifier
             .fillMaxWidth()
-            .background(CastifyColors.Surface)
+            .clickable(onClickLabel = "Open the remote", onClick = onOpen)
             .navigationBarsPadding()
-            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+            .padding(start = BAR_PADDING, end = BAR_PADDING, bottom = 4.dp),
     ) {
+        Chevron(up = true)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
-                Modifier.weight(1f).clickable(onClick = onOpen),
+                Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Thumbnail(now.thumbnailUrl, now.thumbnailHeaders, Modifier.width(96.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(4.dp)))
+                val slot = Modifier.width(BAR_THUMB_WIDTH).aspectRatio(16f / 9f).clip(RoundedCornerShape(4.dp))
+                if (showThumbnail) Thumbnail(now.thumbnailUrl, now.thumbnailHeaders, slot) else Spacer(slot)
                 Column(Modifier.weight(1f)) {
                     Text(tv.device?.name.orEmpty(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Text(
@@ -105,36 +223,147 @@ fun NowPlayingBar(
     }
 }
 
-/** Full-screen remote: thumbnail, progress, −10 s / play-pause / +10 s, stop. */
+/**
+ * The mini player growing into the full remote (and back), following [expansion]:
+ * - the surface's top edge rises from the bar to the top of the screen;
+ * - the thumbnail moves and grows from its place in the bar to its place in the remote;
+ * - the bar's text and buttons fade out early, the remote's controls fade in late.
+ * Composed only while [RemoteExpansion.visible]. It takes every touch: nothing of the browser
+ * underneath (address bar) can be reached. Tapping the remote's top bar, Back or dragging
+ * down shrinks it back to the bar.
+ */
 @Composable
-fun RemoteScreen(
+fun ExpandingPlayer(
     tv: TvSession.State,
-    onClose: () -> Unit,
+    expansion: RemoteExpansion,
     onCommand: (PlayerCommand) -> Unit,
     onRetry: () -> Unit,
     onSubtitles: () -> Unit,
 ) {
+    val onClose: () -> Unit = expansion::close
     BackHandler(onBack = onClose)
     val now = tv.nowPlaying ?: NowPlaying.IDLE
+    val density = LocalDensity.current
+    var remoteThumb by remember { mutableStateOf<Rect?>(null) }
 
+    // Everything below reads expansion.value only in layout / draw lambdas: a frame of the move
+    // redraws, it never recomposes (that was the lag).
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val fullHeight = constraints.maxHeight.toFloat()
+        val fullWidth = constraints.maxWidth.toFloat()
+        /** Top edge of the surface, in px from the top of the screen. */
+        fun top(): Float = lerp(fullHeight - expansion.barHeightPx.coerceIn(1f, fullHeight), 0f, expansion.value)
+
+        // 1. The surface: grows from the bar, takes drags (resize) and every tap on empty areas.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    drawRect(lerp(CastifyColors.Surface, CastifyColors.Background, expansion.value), topLeft = Offset(0f, top()))
+                }
+                .pointerInput(Unit) { detectTapGestures { } },
+        )
+
+        // 2. The thumbnail. Loaded once at its full size (sharp when big) and scaled down to the
+        // bar slot. Its distance to the top edge shrinks from the bar's to the remote's, so it
+        // always stays inside the growing surface.
+        val to = remoteThumb ?: with(density) {
+            val width = fullWidth - 2 * REMOTE_PADDING.toPx()
+            Rect(Offset(REMOTE_PADDING.toPx(), 120.dp.toPx()), Size(width, width * 9f / 16f))
+        }
+        val barLeft = with(density) { BAR_PADDING.toPx() }
+        val barTopInset = with(density) { CHEVRON_HEIGHT.toPx() }
+        val barWidth = with(density) { BAR_THUMB_WIDTH.toPx() }
+        Thumbnail(
+            now.thumbnailUrl,
+            now.thumbnailHeaders,
+            Modifier
+                .offset { IntOffset(to.left.roundToInt(), to.top.roundToInt()) }
+                .size(with(density) { to.width.toDp() }, with(density) { to.height.toDp() })
+                .graphicsLayer {
+                    val f = expansion.value
+                    val scale = lerp(barWidth / to.width, 1f, f)
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = lerp(barLeft, to.left, f) - to.left
+                    translationY = top() + lerp(barTopInset, to.top, f) - to.top
+                    // Rounded 4 dp at every size (the scale would shrink a fixed corner).
+                    shape = RoundedCornerShape((4.dp.toPx() / scale).toDp())
+                    clip = true
+                },
+        )
+
+        // 3. The remote's controls, laid out full screen once, shown in the last half of the move.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = ((expansion.value - 0.5f) / 0.5f).coerceIn(0f, 1f) }
+                .drawWithContent { clipRect(top = top()) { this@drawWithContent.drawContent() } },
+        ) {
+            RemoteContent(tv, now, onClose, onCommand, onRetry, onSubtitles) { remoteThumb = it }
+        }
+
+        // 4. The bar's text and buttons, riding the top edge, gone in the first third of the move.
+        // Removed once invisible: a transparent bar still takes taps, and at the top of the open
+        // remote its progress bar caught taps on the title (seek) and on ⌄ (could not close).
+        if (tv.nowPlaying != null && expansion.barShown) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .offset { IntOffset(0, top().roundToInt()) }
+                    .graphicsLayer { alpha = (1f - expansion.value / BAR_FADE_END).coerceIn(0f, 1f) },
+            ) {
+                BarContent(tv, now, expansion::open, onCommand, onSubtitles, showThumbnail = false)
+            }
+        }
+    }
+}
+
+/**
+ * The full remote's controls: top bar (tap = shrink), thumbnail slot (spinner, seek bubble;
+ * the thumbnail itself is drawn by [ExpandingPlayer]), progress, −10 s / play-pause / stop /
+ * +10 s. [onThumbnailPlaced] reports where the thumbnail goes, in screen coordinates.
+ */
+@Composable
+private fun RemoteContent(
+    tv: TvSession.State,
+    now: NowPlaying,
+    onClose: () -> Unit,
+    onCommand: (PlayerCommand) -> Unit,
+    onRetry: () -> Unit,
+    onSubtitles: () -> Unit,
+    onThumbnailPlaced: (Rect) -> Unit,
+) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(CastifyColors.Background)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = REMOTE_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onClose) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Close remote") }
-            Text(
-                tv.device?.name.orEmpty(),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 8.dp).weight(1f),
-            )
-            if (tv.reachable) SubtitlesButton(now, onSubtitles, size = 48)
+        // Chevron + TV name: one tap target with one highlight (user rule); CC keeps its own.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClickLabel = "Shrink the remote", onClick = onClose),
+        ) {
+            // A hair lower than the old handle (user).
+            Chevron(up = false, Modifier.padding(top = 8.dp))
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    tv.device?.name.orEmpty(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (tv.reachable) SubtitlesButton(now, onSubtitles, size = 48)
+            }
         }
 
         // Repeated ±10 s presses add up in one bubble ("+10 s", "+20 s"…), reset after a pause.
@@ -153,8 +382,13 @@ fun RemoteScreen(
         }
 
         Spacer(Modifier.height(24.dp))
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-            Thumbnail(now.thumbnailUrl, now.thumbnailHeaders, Modifier.fillMaxSize())
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .onGloballyPositioned { onThumbnailPlaced(it.boundsInRoot()) },
+            contentAlignment = Alignment.Center,
+        ) {
             if (now.state == PlaybackState.BUFFERING && tv.reachable) CircularProgressIndicator(color = CastifyColors.Red)
             if (seekTotalMs != 0L) SeekBubble(seekTotalMs)
         }
@@ -190,6 +424,13 @@ fun RemoteScreen(
         }
     }
 }
+
+private val BAR_PADDING = 12.dp
+/** The bar's controls are gone after this share of the move. */
+private const val BAR_FADE_END = 0.3f
+private val BAR_THUMB_WIDTH = 96.dp
+private val CHEVRON_HEIGHT = 24.dp
+private val REMOTE_PADDING = 24.dp
 
 private const val SEEK_BUBBLE_MS = 1_200L
 

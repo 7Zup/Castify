@@ -66,8 +66,17 @@ certificate…) keep the browser's own page. On the home screen while offline, a
 **Background**: when the app leaves the screen, the page goes silent: every `<video>` /
 `<audio>` is paused, the WebView is paused and its timers stop (user rule: only the TV plays;
 the media notification is the TV's remote, never the phone's player). Back in the app, the
-page resumes but the video stays paused. Same pause when a video is sent to the TV (user
-choice): the phone never downloads it at the same time as the TV.
+page resumes but the video stays paused.
+
+**Tab history**: each tab keeps its back / forward pages (`WebView.saveState`, files in
+`tab-history/`), across tab switches and app restarts, so Android Back and a site's own ←
+work like in Chrome. Going to the home screen starts the tab over. A page opened directly
+(typed address, favorite) has nothing before it, as in Chrome. Same pause as soon as a video is sent to the TV
+(user choice), and again once the TV took it: the phone never plays or downloads it at the
+same time as the TV. The pause reaches players inside iframes (cross-origin included):
+`PageMedia` injects a document-start script in every frame (`androidx.webkit`
+`addDocumentStartJavaScript` + `addWebMessageListener`); on an old WebView without these
+features only the main frame is paused.
 
 ## Design
 

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – now-playing bar: show that it opens the remote</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .intro { color:var(--text2); margin:0 0 24px; font-size:14px; max-width:1000px; }
+  .row { display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; }
+  .label { font-size:13px; font-weight:700; margin:0 0 4px; } .label span { color:var(--red); }
+  .sub { color:var(--text2); font-size:12px; margin:0 0 10px; max-width:280px; min-height:48px; }
+  .phone { width:280px; height:560px; background:var(--bg); border-radius:26px; border:6px solid #2b2b2b; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 10px 8px; }
+  .field { flex:1; height:36px; border:1px solid #555; border-radius:20px; display:flex; align-items:center; padding:0 12px; color:var(--text); font-size:11.5px; }
+  .ico { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:16px; }
+  .ico.red { color:var(--red); }
+  .page { flex:1; margin:0 10px; border-radius:6px; background:repeating-linear-gradient(180deg,#1b1b1b 0 14px,#161616 14px 28px); }
+  .np { background:var(--surface); padding:8px 12px 6px; position:relative; }
+  .handle { width:36px; height:4px; border-radius:2px; background:var(--dis); margin:0 auto 6px; }
+  .np-row { display:flex; align-items:center; gap:10px; }
+  .thumb { width:72px; aspect-ratio:16/9; border-radius:4px; background:linear-gradient(135deg,#3a2a2a,#1d1d2d); flex:none; }
+  .txt { flex:1; min-width:0; }
+  .tv { font-size:12px; font-weight:800; }
+  .time { font-size:10.5px; color:var(--text2); }
+  .chev { font-size:15px; color:var(--text2); margin-left:2px; }
+  .btn { width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text); }
+  .cc { font-size:9.5px; font-weight:800; border:1.5px solid var(--text); border-radius:3px; padding:1px 3px; }
+  .progress { height:3px; background:#444; border-radius:2px; margin:8px 0 4px; position:relative; }
+  .progress b { position:absolute; left:0; top:0; bottom:0; width:38%; background:var(--red); border-radius:2px; }
+  .tap { position:absolute; inset:0; border:2px dashed rgba(229,9,20,.55); border-radius:4px; pointer-events:none; }
+  .arrow { position:absolute; right:-6px; top:-34px; font-size:11px; color:var(--text2); text-align:right; }
+  .nav { height:14px; }
+</style>
+</head>
+<body>
+<h1>Now-playing bar: show that tapping it opens the full remote</h1>
+<p class="intro">Today only the thumbnail + text open the remote, with nothing telling the user. The dashed area is what opens the remote in each option. The buttons (CC, play/pause, stop) and the progress bar keep working as today.</p>
+
+<div class="row">
+  <div>
+    <p class="label"><span>A</span> · Chevron</p>
+    <p class="sub">A small ⌃ after the text, like Spotify's mini player. Tap on the thumbnail, text or ⌃ opens the remote.</p>
+    <div class="phone">
+      <div class="status"><span>14:32</span><span>▾ ▮</span></div>
+      <div class="bar"><div class="field">streamsite.example/watch</div><div class="ico red">⧉</div><div class="ico">▢</div><div class="ico">⋮</div></div>
+      <div class="page"></div>
+      <div class="np">
+        <div class="np-row">
+          <div class="np-row" style="flex:1;position:relative">
+            <div class="thumb"></div>
+            <div class="txt"><div class="tv">MyCast</div><div class="time">12:04 / 41:30</div></div>
+            <div class="chev">⌃</div>
+            <div class="tap"></div>
+          </div>
+          <div class="btn"><span class="cc">CC</span></div><div class="btn">❚❚</div><div class="btn">■</div>
+        </div>
+        <div class="progress"><b></b></div>
+      </div>
+      <div class="nav"></div>
+    </div>
+  </div>
+
+  <div>
+    <p class="label"><span>B</span> · Handle + swipe up</p>
+    <p class="sub">A grey handle on top of the bar, like a sheet you pull. Swipe up on the bar, or tap the thumbnail / text, opens the remote.</p>
+    <div class="phone">
+      <div class="status"><span>14:32</span><span>▾ ▮</span></div>
+      <div class="bar"><div class="field">streamsite.example/watch</div><div class="ico red">⧉</div><div class="ico">▢</div><div class="ico">⋮</div></div>
+      <div class="page"></div>
+      <div class="np">
+        <div class="handle"></div>
+        <div class="np-row">
+          <div class="np-row" style="flex:1;position:relative">
+            <div class="thumb"></div>
+            <div class="txt"><div class="tv">MyCast</div><div class="time">12:04 / 41:30</div></div>
+            <div class="tap"></div>
+          </div>
+          <div class="btn"><span class="cc">CC</span></div><div class="btn">❚❚</div><div class="btn">■</div>
+        </div>
+        <div class="progress"><b></b></div>
+      </div>
+      <div class="nav"></div>
+    </div>
+  </div>
+
+  <div>
+    <p class="label"><span>C</span> · Both (recommended)</p>
+    <p class="sub">Handle + ⌃ + swipe up: the handle says "pull me", the ⌃ says "tap me".</p>
+    <div class="phone">
+      <div class="status"><span>14:32</span><span>▾ ▮</span></div>
+      <div class="bar"><div class="field">streamsite.example/watch</div><div class="ico red">⧉</div><div class="ico">▢</div><div class="ico">⋮</div></div>
+      <div class="page"></div>
+      <div class="np">
+        <div class="handle"></div>
+        <div class="np-row">
+          <div class="np-row" style="flex:1;position:relative">
+            <div class="thumb"></div>
+            <div class="txt"><div class="tv">MyCast</div><div class="time">12:04 / 41:30</div></div>
+            <div class="chev">⌃</div>
+            <div class="tap"></div>
+          </div>
+          <div class="btn"><span class="cc">CC</span></div><div class="btn">❚❚</div><div class="btn">■</div>
+        </div>
+        <div class="progress"><b></b></div>
+      </div>
+      <div class="nav"></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

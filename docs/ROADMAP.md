@@ -19,11 +19,18 @@ Comes right after the TV player controls: episode / season buttons join the cont
 Answers already given, to reuse at kickoff:
 
 - Episode list shown on **both** phone and TV.
-- `Next` button appears **30 s before the end**; it **waits for OK** (no auto-play countdown).
-- End of a season → episode 1 of the next season, if possible.
-- No `Next episode` button on the phone: the TV remote is enough.
-- Still open: target site(s) (episode lists are site-specific). Technical constraint: the
-  phone must load the next episode's page (ahead of time, hidden) to find its video.
+- `Next` button appears **30 s before the end**, only when the next episode is known; OK
+  plays it. **`Auto next` checkbox** (user, 11/12/2026): off by default, on both phone and TV
+  (one shared setting); on = the next episode starts by itself at the end.
+- End of a season → episode 1 of the next season.
+- Change episode **and season** from the phone (full remote) and the TV (`Episodes` button).
+- Approach (agreed 11/12/2026): episodes recognized from addresses like
+  `…/tv/<id>/<season>/<episode>` (page or embedded player), episode list from TVmaze (no
+  key, credit shown), the phone loads the target episode hidden and sends its video.
+  Mockup `docs/mockups/episodes.html`, approved 11/12/2026 (with a 10 s countdown when
+  `Auto next` is on, Back cancels it).
+- Nice to have: link guessing on sites without that address pattern, `Previous`, resume,
+  watched marks.
 
 ## Nice-to-have backlog
 - **TV picker**: open the Castify TV app from the phone (Android TV Remote protocol, pairing code once); replace the `App not launched` text by an icon only; tell "installed but closed" from "not installed".
@@ -32,6 +39,13 @@ Answers already given, to reuse at kickoff:
   reopen; "Resume" at the saved position would need a start position in `/play`). Mocked in
   `docs/mockups/home-screen-options.html` (option A); dropped by the user on 11/05/2026:
   "c'est du nice to have, pas besoin du tout".
+
+- **TV volume from the phone**: declined by the user on 11/12/2026 ("tout ou rien"): only the
+  real TV volume 0–100 would do, and it can't be guaranteed. Findings if it comes back: the HD
+  Chromecast gets no HDMI-CEC from its TV (its remote uses IR), so `AudioManager` can only
+  change the Chromecast's own output; the smart TV answers UPnP `RenderingControl`
+  (GetVolume/SetVolume 0–100) on the Wi-Fi, which needs the user to say which TV hosts which
+  Chromecast, and only works with TVs that expose it.
 
 - **Audio language** (user, 11/05/2026: "on viendra la modifier plus tard, mais garde ça en
   tête"): a 1080p stream played in Russian and could not be switched. Today there is no

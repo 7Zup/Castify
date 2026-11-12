@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – videos button that never covers the page</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .intro { color:var(--text2); margin:0 0 24px; font-size:14px; max-width:1000px; }
+  .row { display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; }
+  .label { font-size:13px; font-weight:700; margin:0 0 4px; } .label span { color:var(--red); }
+  .sub { color:var(--text2); font-size:12px; margin:0 0 10px; max-width:280px; min-height:64px; }
+  .phone { width:280px; height:560px; background:var(--bg); border-radius:26px; border:6px solid #2b2b2b; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 10px 8px; }
+  .field { flex:1; height:36px; border:1px solid #555; border-radius:20px; display:flex; align-items:center; padding:0 12px; color:var(--text); font-size:11.5px; min-width:0; overflow:hidden; white-space:nowrap; }
+  .ico { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:16px; position:relative; flex:none; }
+  .badge { position:absolute; top:-6px; right:-7px; background:var(--red); color:#fff; font-size:8.5px; font-weight:800; border-radius:8px; min-width:14px; height:14px; display:flex; align-items:center; justify-content:center; padding:0 3px; }
+  .tabs { width:16px; height:16px; border:2px solid var(--text2); border-radius:3px; font-size:8.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .page { flex:1; position:relative; background:#000; margin:0 0 0; }
+  .site { position:absolute; inset:0; }
+  .site .top { position:absolute; left:8px; top:8px; display:flex; gap:6px; }
+  .site .round { width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; font-size:11px; }
+  .site .bottom { position:absolute; left:8px; right:8px; bottom:8px; display:flex; justify-content:space-between; font-size:10px; color:var(--text2); }
+  .site .bottom b { width:22px; height:22px; border-radius:4px; background:rgba(255,255,255,.12); display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:400; }
+  .site .play { position:absolute; left:50%; top:45%; transform:translate(-50%,-50%); width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; }
+  .strip { background:var(--surface); display:flex; align-items:center; gap:10px; padding:10px 14px; font-size:12.5px; font-weight:700; }
+  .strip .c { color:var(--red); }
+  .strip .go { margin-left:auto; color:var(--text2); }
+  .fab { position:absolute; right:10px; bottom:46px; width:40px; height:40px; border-radius:12px; background:#5a1015; display:flex; align-items:center; justify-content:center; font-size:15px; box-shadow:0 2px 8px rgba(0,0,0,.5); }
+  .fab .badge { top:-5px; right:-5px; }
+  .note { position:absolute; left:10px; right:60px; bottom:48px; font-size:10px; color:var(--text2); text-align:right; }
+  .nav { height:14px; background:var(--bg); }
+</style>
+</head>
+<body>
+<h1>"N videos found" must never cover the site</h1>
+<p class="intro">Today the floating button sits over the bottom right of the page and hides the site's own buttons (episodes, settings, fullscreen). Three ways to keep it reachable without covering anything. The page below is a site's video player with its controls.</p>
+<div class="row">
+  <div>
+    <p class="label"><span>A</span> · In the top bar (recommended)</p>
+    <p class="sub">A video icon next to Cast, with a red count badge. Tap → the video list. Nothing over the page, ever. Grey without badge when no video is found.</p>
+    <div class="phone">
+      <div class="status"><span>14:32</span><span>▾ ▮</span></div>
+      <div class="bar"><div class="field">streamsite.example/play</div><div class="ico">▶<span class="badge">3</span></div><div class="ico" style="color:var(--red)">⧉</div><div class="ico"><span class="tabs">2</span></div><div class="ico">⋮</div></div>
+      <div class="page"><div class="site"><div class="top"><span class="round">←</span><span class="round">⌂</span></div><div class="play">▶</div><div class="bottom"><b>🔇</b><span><b>☰</b> <b>CC</b> <b>⚙</b> <b>⛶</b></span></div></div></div>
+      <div class="nav"></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>B</span> · Strip under the page</p>
+    <p class="sub">A thin bar of its own under the page (the page gets a bit shorter). Tap → the video list. Very visible, costs ~40 px of page height.</p>
+    <div class="phone">
+      <div class="status"><span>14:32</span><span>▾ ▮</span></div>
+      <div class="bar"><div class="field">streamsite.example/play</div><div class="ico" style="color:var(--red)">⧉</div><div class="ico"><span class="tabs">2</span></div><div class="ico">⋮</div></div>
+      <div class="page"><div class="site"><div class="top"><span class="round">←</span><span class="round">⌂</span></div><div class="play">▶</div><div class="bottom"><b>🔇</b><span><b>☰</b> <b>CC</b> <b>⚙</b> <b>⛶</b></span></div></div></div>
+      <div class="strip"><span class="c">⧉</span> 3 videos found <span class="go">Cast ›</span></div>
+      <div class="nav"></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>C</span> · Small button that steps aside</p>
+    <p class="sub">The floating button shrinks to an icon with a badge, and hides while the finger is on the page; it comes back 3 s later. Still over the page the rest of the time.</p>
+    <div class="phone">
+      <div class="status"><span>14:32</span><span>▾ ▮</span></div>
+      <div class="bar"><div class="field">streamsite.example/play</div><div class="ico" style="color:var(--red)">⧉</div><div class="ico"><span class="tabs">2</span></div><div class="ico">⋮</div></div>
+      <div class="page"><div class="site"><div class="top"><span class="round">←</span><span class="round">⌂</span></div><div class="play">▶</div><div class="bottom"><b>🔇</b><span><b>☰</b> <b>CC</b> <b>⚙</b> <b>⛶</b></span></div></div><div class="fab">⧉<span class="badge">3</span></div></div>
+      <div class="nav"></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

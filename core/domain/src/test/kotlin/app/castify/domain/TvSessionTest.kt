@@ -10,6 +10,7 @@ import app.castify.domain.playback.PlayerCommand
 import app.castify.domain.port.TvClient
 import app.castify.domain.session.TvSession
 import app.castify.domain.session.TvSession.SendResult
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -119,11 +120,62 @@ class TvSessionTest {
     }
 
     @Test
-    fun `unreachable tv keeps the connection, retry recovers`() = runTest {
+    fun `connecting until the tv answers`() = runTest {
+        val session = TvSession(FakeTv(), backgroundScope)
+        session.connect(tv)
+        assertTrue(session.state.value.connecting)
+        assertFalse(session.state.value.live)
+        runCurrent()
+        assertFalse(session.state.value.connecting)
+        assertTrue(session.state.value.live)
+    }
+
+    @Test
+    fun `a tv that never answers is not connected, and says so`() = runTest {
+        val fake = FakeTv().apply { reachable = false }
+        val session = TvSession(fake, backgroundScope)
+        val failures = mutableListOf<TvSession.ConnectFailed>()
+        backgroundScope.launch { session.connectFailures.collect { failures += it } }
+        runCurrent()
+        session.connect(tv)
+        runCurrent()
+        assertFalse(session.state.value.connected)
+        assertEquals(listOf(TvSession.ConnectFailed(tv)), failures)
+        val calls = fake.statusCalls
+        advanceTimeBy(10_000)
+        assertEquals(calls, fake.statusCalls) // no more polling
+    }
+
+    @Test
+    fun `send to a tv that never answers reports not connected`() = runTest {
         val fake = FakeTv().apply { reachable = false }
         val session = TvSession(fake, backgroundScope)
         session.connect(tv)
+        assertEquals(SendResult.NotConnected, session.send(stream, null))
+        assertTrue(fake.played.isEmpty())
+    }
+
+    @Test
+    fun `the session follows the tv to its new address`() = runTest {
+        val fake = FakeTv()
+        val session = TvSession(fake, backgroundScope)
+        session.connect(tv)
         runCurrent()
+        val moved = tv.copy(host = "10.0.0.27")
+        session.follow(listOf(TvDevice("Other", "10.0.0.9", 47800), moved))
+        assertEquals(moved, session.state.value.device)
+        session.follow(listOf(TvDevice("Other", "10.0.0.9", 47800)))
+        assertEquals(moved, session.state.value.device)
+    }
+
+    @Test
+    fun `unreachable tv keeps the connection, retry recovers`() = runTest {
+        val fake = FakeTv()
+        val session = TvSession(fake, backgroundScope)
+        session.connect(tv)
+        runCurrent()
+        fake.reachable = false
+        advanceTimeBy(3_001)
         assertTrue(session.state.value.connected)
         assertFalse(session.state.value.reachable)
 

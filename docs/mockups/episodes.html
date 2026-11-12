@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – TV shows: episodes, Next, Auto next</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; --green:#46D369; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; } h2 { font-size:17px; margin:40px 0 4px; }
+  .intro { color:var(--text2); margin:0 0 10px; font-size:14px; max-width:1050px; line-height:1.45; }
+  .row { display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; }
+  .label { font-size:13px; font-weight:700; margin:16px 0 4px; } .label span { color:var(--red); }
+  .sub { color:var(--text2); font-size:12px; margin:0 0 10px; max-width:300px; min-height:48px; }
+  /* phone */
+  .phone { width:280px; height:560px; background:var(--bg); border-radius:26px; border:6px solid #2b2b2b; overflow:hidden; display:flex; flex-direction:column; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; flex:none; }
+  .rtop { display:flex; align-items:center; gap:10px; padding:4px 14px; font-weight:800; font-size:15px; flex:none; }
+  .rtop .chev { color:var(--text2); font-weight:400; } .rtop .cc { margin-left:auto; font-size:9.5px; border:1.5px solid #fff; border-radius:3px; padding:1px 3px; }
+  .thumb { margin:6px 14px 0; aspect-ratio:16/9; border-radius:4px; background:linear-gradient(135deg,#3a2a2a,#1d1d2d); position:relative; flex:none; }
+  .ep-title { padding:8px 14px 0; font-size:13px; font-weight:800; } .ep-title small { display:block; font-weight:400; color:var(--text2); font-size:11px; margin-top:2px; }
+  .prog { margin:8px 14px 0; height:3px; background:#444; border-radius:2px; position:relative; flex:none; } .prog b { position:absolute; left:0; top:0; bottom:0; width:42%; background:var(--red); border-radius:2px; }
+  .ctrl { display:flex; justify-content:space-evenly; align-items:center; padding:8px 0 4px; font-size:16px; flex:none; } .ctrl .pp { width:40px; height:40px; border-radius:50%; background:#fff; color:#000; display:flex; align-items:center; justify-content:center; }
+  .sect { border-top:1px solid var(--raised); margin-top:6px; padding:8px 14px 0; display:flex; align-items:center; gap:8px; flex:none; }
+  .sect .h { font-weight:800; font-size:13px; } .sect .season { margin-left:auto; font-size:11.5px; border:1px solid #555; border-radius:14px; padding:3px 10px; }
+  .list { flex:1; overflow:hidden; padding:4px 0 0; }
+  .ep { display:flex; gap:10px; align-items:center; padding:6px 14px; font-size:11.5px; }
+  .ep i { width:64px; aspect-ratio:16/9; border-radius:3px; background:#2b2b33; flex:none; font-style:normal; }
+  .ep .t { flex:1; min-width:0; } .ep .t b { display:block; font-size:11.5px; } .ep .t span { color:var(--text2); font-size:10.5px; }
+  .ep.now { background:var(--surface); } .ep.now b { color:var(--text); } .ep .tag { color:var(--red); font-size:9.5px; font-weight:800; letter-spacing:.3px; }
+  .auto { display:flex; align-items:center; gap:8px; padding:8px 14px; border-top:1px solid var(--raised); font-size:12px; flex:none; }
+  .box { width:16px; height:16px; border:2px solid var(--text2); border-radius:3px; flex:none; } .box.on { background:var(--red); border-color:var(--red); position:relative; } .box.on::after { content:"✓"; position:absolute; inset:-3px 0 0 2px; font-size:11px; font-weight:900; }
+  .credit { padding:0 14px 8px; font-size:9px; color:var(--dis); flex:none; }
+  .busy { display:flex; align-items:center; gap:8px; color:var(--text2); }
+  .spin { width:14px; height:14px; border:2px solid #555; border-top-color:var(--red); border-radius:50%; flex:none; }
+  .err { color:var(--text); } .err small { color:var(--text2); display:block; }
+  .retry { margin-left:auto; border:1px solid #777; border-radius:4px; padding:3px 8px; font-size:10.5px; font-weight:700; }
+  /* tv */
+  .tv { width:480px; height:270px; background:#000; border:6px solid #2b2b2b; border-radius:6px; position:relative; overflow:hidden; }
+  .scene { position:absolute; inset:0; background:linear-gradient(120deg,#1d2430,#2a1c1c 60%,#111); }
+  .panel { position:absolute; left:0; right:0; bottom:0; background:rgba(11,11,11,.88); padding:10px 18px 12px; }
+  .ttl { font-size:11px; font-weight:800; margin-bottom:6px; } .ttl span { color:var(--text2); font-weight:400; }
+  .tbar { height:3px; background:#444; border-radius:2px; position:relative; margin-bottom:10px; } .tbar b { position:absolute; left:0; top:0; bottom:0; width:42%; background:var(--red); }
+  .btns { display:flex; gap:14px; align-items:flex-end; font-size:15px; }
+  .b { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#ddd; position:relative; }
+  .b.f { background:#fff; color:#000; transform:scale(1.1); }
+  .b em { position:absolute; top:34px; left:50%; transform:translateX(-50%); font-size:8.5px; font-style:normal; white-space:nowrap; color:#fff; }
+  .b.cc { font-size:9px; font-weight:800; }
+  .ov { position:absolute; inset:0; background:rgba(0,0,0,.82); padding:14px 18px; }
+  .seasons { display:flex; gap:8px; margin:6px 0 10px; font-size:10px; }
+  .chip { padding:3px 9px; border-radius:12px; background:#262626; color:var(--text2); } .chip.on { background:#fff; color:#000; font-weight:800; } .chip.cur { border:1.5px solid #fff; }
+  .cards { display:flex; gap:10px; }
+  .card { width:96px; flex:none; font-size:8.5px; color:var(--text2); } .card i { display:block; aspect-ratio:16/9; border-radius:3px; background:#2b2b33; margin-bottom:4px; font-style:normal; position:relative; }
+  .card b { display:block; color:#fff; font-size:9px; } .card.f i { outline:2.5px solid #fff; transform:scale(1.05); } .card.now i::after { content:"PLAYING"; position:absolute; left:4px; bottom:4px; font-size:7px; font-weight:900; color:#fff; background:var(--red); padding:1px 3px; border-radius:2px; }
+  .tauto { position:absolute; left:18px; bottom:12px; display:flex; align-items:center; gap:7px; font-size:10px; }
+  .tauto .box { width:13px; height:13px; }
+  .tauto.f { outline:2px solid #fff; outline-offset:4px; border-radius:2px; }
+  .next { position:absolute; right:18px; bottom:18px; background:#fff; color:#000; border-radius:4px; padding:7px 12px; font-size:10.5px; font-weight:800; display:flex; gap:8px; align-items:center; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
+  .next small { font-weight:400; color:#333; font-size:9px; display:block; }
+  .center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; font-size:12px; }
+  .center small { color:var(--text2); font-size:10px; }
+  .tbtn { display:flex; gap:10px; margin-top:6px; } .tbtn span { font-size:10px; font-weight:800; padding:5px 12px; border-radius:4px; background:#333; } .tbtn span.f { background:#fff; color:#000; }
+</style>
+</head>
+<body>
+<h1>TV shows: change episode / season, Next, Auto next</h1>
+<p class="intro">Shown only when Castify recognizes a series episode (address like <code>…/tv/&lt;id&gt;/&lt;season&gt;/&lt;episode&gt;</code>). Episode names and pictures come from a public TV database (no account). Picking an episode: the phone loads it hidden, finds its video and sends it to the TV, like a normal cast. <b>Auto next</b> is off by default, the same setting on the phone and the TV.</p>
+
+<h2>Phone · full remote</h2>
+<div class="row">
+  <div>
+    <p class="label"><span>P1</span> · Episodes in the remote</p>
+    <p class="sub">Under the controls: the season picker, then the season's episodes (current one marked). Tap an episode → it plays on the TV. Auto next checkbox at the bottom.</p>
+    <div class="phone">
+      <div class="status"><span>21:04</span><span>▾ ▮</span></div>
+      <div class="rtop"><span class="chev">⌄</span> MyCast <span class="cc">CC</span></div>
+      <div class="thumb"></div>
+      <div class="ep-title">Example Show · S5 E2<small>Second Round</small></div>
+      <div class="prog"><b></b></div>
+      <div class="ctrl"><span>↺10</span><span class="pp">❚❚</span><span>■</span><span>10↻</span></div>
+      <div class="sect"><span class="h">Episodes</span><span class="season">Season 5 ▾</span></div>
+      <div class="list">
+        <div class="ep"><i></i><div class="t"><b>1 · The Pitch</b><span>29 min</span></div></div>
+        <div class="ep now"><i></i><div class="t"><span class="tag">PLAYING</span><b>2 · Second Round</b><span>30 min</span></div></div>
+        <div class="ep"><i></i><div class="t"><b>3 · New Hire</b><span>29 min</span></div></div>
+        <div class="ep"><i></i><div class="t"><b>4 · Demo Day</b><span>28 min</span></div></div>
+      </div>
+      <div class="auto"><span class="box"></span> Auto next <span style="color:var(--text2);font-size:10.5px;margin-left:auto">plays the next one at the end</span></div>
+      <div class="credit">Episode info: TVmaze</div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>P2</span> · Season picker open</p>
+    <p class="sub">A simple list of seasons; the playing season is marked. Picking one shows its episodes (nothing plays until an episode is tapped).</p>
+    <div class="phone">
+      <div class="status"><span>21:04</span><span>▾ ▮</span></div>
+      <div class="rtop"><span class="chev">⌄</span> MyCast <span class="cc">CC</span></div>
+      <div class="thumb"></div>
+      <div class="ep-title">Example Show · S5 E2<small>Second Round</small></div>
+      <div class="sect"><span class="h">Choose a season</span></div>
+      <div class="list">
+        <div class="ep"><div class="t"><b>Season 1</b><span>8 episodes</span></div></div>
+        <div class="ep"><div class="t"><b>Season 2</b><span>10 episodes</span></div></div>
+        <div class="ep"><div class="t"><b>Season 3</b><span>10 episodes</span></div></div>
+        <div class="ep"><div class="t"><b>Season 4</b><span>10 episodes</span></div></div>
+        <div class="ep now"><div class="t"><span class="tag">PLAYING</span><b>Season 5</b><span>8 episodes</span></div></div>
+        <div class="ep"><div class="t"><b>Season 6</b><span>7 episodes</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>P3</span> · Loading / failed</p>
+    <p class="sub">The tapped episode shows a spinner while the phone looks for its video. If none is found (site down, player changed): a line with Retry. The TV keeps playing meanwhile.</p>
+    <div class="phone">
+      <div class="status"><span>21:04</span><span>▾ ▮</span></div>
+      <div class="rtop"><span class="chev">⌄</span> MyCast <span class="cc">CC</span></div>
+      <div class="thumb"></div>
+      <div class="ep-title">Example Show · S5 E2<small>Second Round</small></div>
+      <div class="sect"><span class="h">Episodes</span><span class="season">Season 5 ▾</span></div>
+      <div class="list">
+        <div class="ep now"><i></i><div class="t"><span class="tag">PLAYING</span><b>2 · Second Round</b><span>30 min</span></div></div>
+        <div class="ep"><i></i><div class="t busy"><span class="spin"></span><span><b style="color:#fff">3 · New Hire</b>Finding the video…</span></div></div>
+        <div class="ep"><i></i><div class="t err"><b>4 · Demo Day</b><small>Couldn't find the video of this episode</small></div><span class="retry">Retry</span></div>
+        <div class="ep"><i></i><div class="t"><b>5 · The Offer</b><span>29 min</span></div></div>
+      </div>
+      <div class="auto"><span class="box on"></span> Auto next <span style="color:var(--text2);font-size:10.5px;margin-left:auto">plays the next one at the end</span></div>
+      <div class="credit">Episode info: TVmaze</div>
+    </div>
+  </div>
+</div>
+<p class="intro" style="margin-top:14px">Not a series (movie, unknown site): no Episodes section, the remote stays as today. Episode list unavailable (database down): only the current episode and <b>Next</b> stay; the section says <i>"Episode list unavailable"</i>.</p>
+
+<h2>TV · player</h2>
+<div class="row">
+  <div>
+    <p class="label"><span>T1</span> · Controls row with Episodes</p>
+    <p class="sub">A new <b>Episodes</b> button after CC (series only). Title line shows S·E and the episode name.</p>
+    <div class="tv"><div class="scene"></div>
+      <div class="panel">
+        <div class="ttl">Example Show · S5 E2 <span>· Second Round</span></div>
+        <div class="tbar"><b></b></div>
+        <div class="btns"><span class="b">↺</span><span class="b">❚❚</span><span class="b">↻</span><span style="flex:1"></span><span class="b cc">CC</span><span class="b f">☰<em>Episodes</em></span></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>T2</span> · Episodes panel</p>
+    <p class="sub">▲▼ between the season row, the episode row and Auto next; ◀▶ inside a row; OK plays the episode / picks the season / ticks Auto next. Back closes.</p>
+    <div class="tv"><div class="scene"></div>
+      <div class="ov">
+        <div class="ttl">Example Show</div>
+        <div class="seasons"><span class="chip">S1</span><span class="chip">S2</span><span class="chip">S3</span><span class="chip">S4</span><span class="chip on">S5</span><span class="chip">S6</span></div>
+        <div class="cards">
+          <div class="card"><i></i><b>1 · The Pitch</b>29 min</div>
+          <div class="card now"><i></i><b>2 · Second Round</b>30 min</div>
+          <div class="card f"><i></i><b>3 · New Hire</b>29 min</div>
+          <div class="card"><i></i><b>4 · Demo Day</b>28 min</div>
+        </div>
+        <div class="tauto"><span class="box"></span> Auto next</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div>
+    <p class="label"><span>T3</span> · Next, 30 s before the end</p>
+    <p class="sub">Bottom right, focused: OK plays it. Only when the next episode is known and its video found. Last of a season → <b>S6 E1</b>. Last of the series → no button.</p>
+    <div class="tv"><div class="scene"></div>
+      <div class="next">▶ <span>Next episode<small>S5 E3 · New Hire</small></span></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>T4</span> · Auto next on</p>
+    <p class="sub">Same button with a 10 s countdown at the very end; Back cancels it (the episode just ends). OK starts it right away.</p>
+    <div class="tv"><div class="scene"></div>
+      <div class="next">▶ <span>Next episode in 8 s<small>S5 E3 · New Hire</small></span></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>T5</span> · Loading / failed</p>
+    <p class="sub">While the phone finds the video. Failure (phone gone, site down): Retry / Back.</p>
+    <div class="tv"><div class="scene" style="opacity:.25"></div>
+      <div class="center"><span class="spin" style="width:22px;height:22px"></span>Loading S5 E3…<small>Your phone is finding the video</small></div>
+    </div>
+    <div class="tv" style="margin-top:14px"><div class="scene" style="opacity:.25"></div>
+      <div class="center"><b>Couldn't load S5 E3</b><small>Check your phone is on and on the same Wi-Fi</small><div class="tbtn"><span class="f">Retry</span><span>Back</span></div></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

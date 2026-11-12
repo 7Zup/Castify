@@ -3,8 +3,15 @@
 ## Behavior
 
 **Cast button** (top right of the address bar)
-- Gray `Cast` icon: not connected. Tap → TV list (`Play on`) → pick a `Ready` TV → connected.
-- Red `CastConnected` icon: connected. Tap → `Connected to <TV>` → `Disconnect` / `Cancel`.
+- Gray `Cast` icon: not connected. Tap → TV list (`Play on`) → pick a `Ready` TV.
+- Pulsing red `Cast` icon: connecting, waiting for the TV's first answer (≤ 2.5 s). No answer
+  → back to gray + snackbar `<TV> isn't responding. Check it's on the same Wi-Fi, or restart it.`
+  (a video being sent is not sent).
+- Red `CastConnected` icon: connected and the TV answers. Tap → `Connected to <TV>` →
+  `Disconnect` / `Cancel`.
+- Gray `CastConnected` icon: connected but the TV stopped answering (see `Can't reach` below).
+  Meanwhile the phone looks for the TV on the Wi-Fi and follows it if it came back with a new
+  address (DHCP), without losing what plays.
 - The connection lasts while the app process lives (not remembered after the app is killed).
 
 **Sending a video**
@@ -22,7 +29,9 @@
   half-second flash).
 - The search heals by itself after a Wi-Fi drop: no need to kill the app.
 - Every line has a status dot (mockup option B, `docs/mockups/tv-picker-not-launched.html`):
-  green `Ready` = Castify TV answers, tap plays; gray `App not launched` = any other Google
+  green `Ready` = Castify TV answers, tap plays; gray `Not responding` = the Castify TV was
+  found but does not answer its status check (every 3 s while the list is open; cached mDNS
+  entry, TV off the Wi-Fi), dimmed but tap still tries; gray `App not launched` = any other Google
   Cast device on the Wi-Fi (Google TV with the app closed, plain Chromecast, Cast smart TV,
   speaker), dimmed, tap does nothing. A line turns `Ready` by itself when the app opens on
   the TV, and back to gray a few seconds after it closes. Ready first, then the others,
@@ -39,9 +48,22 @@
 - Progress bars (bar and remote) show the TV buffer YouTube-style: dark = not loaded,
   light gray = downloaded by the TV, red = played. Not in the notification (system media
   controls cannot draw it; user agreed).
-- Tap the thumbnail or the text → full-screen remote (the only place with ±10 s, by user choice).
+- A ⌃ chevron centered on top of the bar. A tap anywhere on the bar (chevron, thumbnail,
+  text) opens the full-screen remote, and the whole bar highlights as one (user rule; the
+  CC / play-pause / stop buttons and the progress bar keep their own action) (the only place with ±10 s, by user choice). No drag (user, 11/12/2026: a handle and
+  a finger-following resize were tried, then dropped for the chevron).
+- Opening animates the mini player itself into the remote (`RemoteExpansion` +
+  `ExpandingPlayer`, user: "the mini player grows", not a new screen sliding in), spring
+  without bounce: its top edge rises, the thumbnail moves and grows from the bar to its place
+  in the remote while staying inside the surface (loaded once at its full size and scaled, so
+  it stays sharp; frames only redraw), the bar's text and buttons fade out in the first third
+  (then are removed so they take no tap), the remote's controls fade in over the last half.
+  Shrinking plays it backwards.
 
-**Remote** (full screen, Back or ⌄ closes it)
+**Remote** (full screen; the header, a ⌄ centered at the very top + the TV name row, is one
+tap target highlighted as a whole that shrinks it to the bar, like Back; no ⌄ on the left any
+more, user: redundant; the CC button keeps its own action). It takes every touch: nothing of the browser under it (address bar)
+can be reached.
 - Thumbnail (spinner while loading), progress slider with elapsed and duration, then one
   line of controls: `−10 s`, play/pause, `Stop`, `+10 s`. Live: no slider, `Live`, no ±10 s.
 - Each ±10 s press shows a bubble over the thumbnail that adds up while tapping (`+10 s`,
