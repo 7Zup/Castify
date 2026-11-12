@@ -77,6 +77,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -569,6 +571,14 @@ private fun AddressBar(
     // handle could not be dragged. The page's address comes back once the field is left.
     var field by remember { mutableStateOf(TextFieldValue(text)) }
     LaunchedEffect(text, editing) { if (!editing && field.text != text) field = TextFieldValue(text) }
+    // Entering the field: the cursor goes to the end, so the end of a long address shows and can
+    // be edited straight away (after the tap has placed its own cursor).
+    LaunchedEffect(editing) {
+        if (editing) {
+            withFrameNanos { }
+            field = field.copy(selection = TextRange(field.text.length))
+        }
+    }
     val submit = {
         onTextChange(field.text)
         onSubmit()
@@ -602,7 +612,8 @@ private fun AddressBar(
         // Tight icon row (user feedback): narrower buttons, full 48 dp height for touch. The
         // default 48x48 minimum would put the gaps back, so it is lifted for these three only.
         // Widths give the same visible gap between Cast, tabs counter and ⋮ (the ⋮ glyph is thin).
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        // While editing, the field takes the whole bar (like Chrome): the icons come back after.
+        if (!editing) CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
             // Videos of the page (mockup option A, `docs/mockups/videos-button.html`): in the bar,
             // never over the page, where it used to hide the sites' own player buttons.
             if (videoCount != null) {

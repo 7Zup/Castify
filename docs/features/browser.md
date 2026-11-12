@@ -68,8 +68,10 @@ certificate…) keep the browser's own page. On the home screen while offline, a
 the media notification is the TV's remote, never the phone's player). Back in the app, the
 page resumes but the video stays paused.
 
-**Address bar while editing**: the field keeps its own text and cursor until it is left (a site
-changing its address meanwhile no longer resets them, so the cursor handle can be dragged).
+**Address bar while editing**: the field takes the whole bar (the icons hide, like Chrome) and
+the cursor goes to the end of the address, so the end of a long address shows and can be edited.
+The field keeps its own text and cursor until it is left (a site changing its address
+meanwhile no longer resets them).
 Opening the remote, a sheet or a screen, or touching the page, leaves the field and hides the
 keyboard.
 
