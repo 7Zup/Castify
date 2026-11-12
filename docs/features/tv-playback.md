@@ -18,7 +18,7 @@
   | **Offline** (no network) | red / `Offline` | `Not connected` · `Connect this TV to Wi-Fi` | 1, then 2 and 3 dimmed |
   Steps: 1. `Connect this TV to Wi-Fi` · `Settings → Network & Internet, same Wi-Fi as your
   phone`; 2. `Open Castify on your phone, tap <Cast icon> and pick <TV>` · `Same Wi-Fi as this
-  TV`; 3. `Find a video, tap “Videos found”` · `Once the video plays, you can lock your phone
+  TV`; 3. `Find a video, tap the video icon at the top` · `Once the video plays, you can lock your phone
   and enjoy`. Rule `TvPresence.of` (domain); it follows reality by itself (a status, not a retry).
   No remote key reminder (user: overkill). The app must be open on the TV.
 - On a play request the video starts full screen; a spinner shows while buffering.

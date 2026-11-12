@@ -10,11 +10,17 @@ import app.castify.domain.playback.PlayerCommand
 import app.castify.domain.port.CastDeviceScanner
 import app.castify.domain.port.Player
 import app.castify.domain.port.TvDiscovery
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.transformLatest
 
 // ---- Phone side ----
 
@@ -41,13 +47,35 @@ class ObserveTvDevices(private vararg val discoveries: TvDiscovery) {
 class ObserveNearbyTvs(
     private val castifyTvs: ObserveTvDevices,
     private val castScanner: CastDeviceScanner,
+    /**
+     * Does this Castify TV answer right now? Discovery can list a TV that stopped answering
+     * (cached mDNS entry, TV off the Wi-Fi): it is shown "Not responding". Null = no check.
+     */
+    private val probe: (suspend (TvDevice) -> Boolean)? = null,
+    private val probeEveryMs: Long = 3_000,
 ) {
-    operator fun invoke(): Flow<List<NearbyTv>> =
-        combine(
+    @OptIn(ExperimentalCoroutinesApi::class)
+    operator fun invoke(): Flow<List<NearbyTv>> {
+        val found = combine(
             castifyTvs(),
             castScanner.devices().onStart { emit(emptyList()) }.catch { emit(emptyList()) },
         ) { castify, cast -> merge(castify, cast) }
             .distinctUntilChanged()
+        val probe = probe ?: return found
+        // Last answer per TV, kept across list changes (no "Ready" flash for a dead TV).
+        val answers = mutableMapOf<TvDevice, Boolean>()
+        fun List<NearbyTv>.withAnswers() = map { tv -> tv.copy(responding = tv.castify?.let { answers[it] } ?: true) }
+        return found.transformLatest { list ->
+            emit(list.withAnswers())
+            while (true) {
+                val tvs = list.mapNotNull { it.castify }
+                if (tvs.isEmpty()) break
+                coroutineScope { tvs.map { tv -> async { tv to probe(tv) } }.awaitAll() }.forEach { (tv, ok) -> answers[tv] = ok }
+                emit(list.withAnswers())
+                delay(probeEveryMs)
+            }
+        }.distinctUntilChanged()
+    }
 
     companion object {
         /**

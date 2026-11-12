@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 11/06/2026_
+_Last updated: 11/12/2026_
 
 ## Done (all merged into `main`)
 
@@ -21,7 +21,7 @@ _Last updated: 11/06/2026_
   at launch), favorites (★, name only), history of every visited page (max 1000, search),
   home screen, tight top bar (Cast, tabs counter, ⋮). Spec `docs/features/browser.md`, mockup
   `docs/mockups/mobile-browser.html`. Validated by the user on the phone.
-- 116 unit tests green. Both apps installed on the user's devices.
+- 121 unit tests green. Both apps installed on the user's devices.
 
 ## Repo
 
@@ -33,7 +33,7 @@ _Last updated: 11/06/2026_
 
 - Models, serials, IPs and TV names: gitignored `.kiro/steering/local.md` (never in the
   repo, see `.kiro/steering/privacy.md`).
-- Phone (Android 10, USB) + two TVs: a Chromecast with Google TV HD (the main one) and a
+- Phone (OnePlus, USB) + two TVs: a Chromecast with Google TV HD (the main one) and a
   Chromecast with Google TV 4K, both Android TV 14 with Wireless debugging paired (connect
   port changes, see `docs/setup-devices.md`). The 4K still answers the old Cast
   `:8008/setup/eureka_info`, which once misled the agent.
@@ -41,6 +41,22 @@ _Last updated: 11/06/2026_
 
 ## In progress
 
+- **User report of 11/12/2026**, branch `fix/pause-phone-video` (PR open, to be merged by the user).
+  Checked by the user on the phone: video paused on cast, pulsing connect icon, now-playing bar
+  ⌃ / remote ⌄ with the grow animation, whole-strip highlight. Contents:
+  - phone video paused at send start + after success, iframes included (`PageMedia`);
+  - connecting state: connected only once the TV answers, `<TV> isn't responding…` otherwise,
+    grey icon when the TV stops answering, picker `Not responding` (status probe every 3 s),
+    session follows a TV whose IP changed;
+  - video icon + red badge in the top bar instead of the floating `N videos found` button,
+    which hid the sites' own player buttons (root cause of "can't navigate");
+  - tab back/forward history kept across restarts (`TabHistoryStore`): a site's own ← works;
+  - now-playing bar ⌃ / remote ⌄ (no drag, after trying a handle and a finger-following
+    resize), the mini player grows into the remote, the remote takes every touch;
+  - debug builds allow `chrome://inspect` on the WebView.
+  Not checked on a device yet: `Not responding` / IP follow, tab history after a restart, TV
+  welcome step 3 text (TV not reinstalled).
+- Declined 11/12/2026: TV volume from the phone ("tout ou rien"), findings in ROADMAP.
 - **In-app update + version label** (branch `feat/app-update`, spec
   `docs/features/app-update.md`, mockup `docs/mockups/app-update.html`, publishing
   `docs/releasing.md`): silent check of the GitHub release at launch, `Update` / `Not now`
@@ -75,9 +91,10 @@ _Last updated: 11/06/2026_
 
 ## Next step
 
-- **TV shows** (episodes + `Next`, switch episode from the TV player), "hyper important" per
-  the user, but **not started yet: wait for the user to say go**. Answers already given are in
-  `docs/ROADMAP.md`; ask for the target site first.
+- **TV shows** (episodes + seasons on phone and TV, `Next` 30 s before the end, `Auto next`):
+  go given by the user on 11/12/2026, after the `fix/pause-phone-video` PR, on its own branch.
+  Scope and approach in `docs/ROADMAP.md` ("Next: TV shows"), mockup
+  `docs/mockups/episodes.html` (approved).
 
 ## Parked by the user (do not build without asking)
 

@@ -103,3 +103,46 @@ class TabPreviewStore(context: Context) {
         dir.listFiles()?.filter { it.nameWithoutExtension !in tabIds }?.forEach { it.delete() }
     }
 }
+
+/**
+ * Each tab's back / forward history (`WebView.saveState`), kept across app restarts so
+ * Android Back and the sites' own ← work like in Chrome. Files in the app's private storage.
+ * A parcel written by another WebView version may not read back: it is then ignored and the
+ * tab simply opens its last address.
+ */
+class TabHistoryStore(context: Context) {
+    private val dir = File(context.applicationContext.filesDir, "tab-history").apply { mkdirs() }
+
+    private fun file(tabId: String) = File(dir, "$tabId.bin")
+
+    fun save(tabId: String, state: android.os.Bundle) {
+        runCatching {
+            val parcel = android.os.Parcel.obtain()
+            try {
+                state.writeToParcel(parcel, 0)
+                file(tabId).writeBytes(parcel.marshall())
+            } finally {
+                parcel.recycle()
+            }
+        }
+    }
+
+    fun load(tabId: String): android.os.Bundle? = runCatching {
+        val bytes = file(tabId).takeIf { it.exists() }?.readBytes() ?: return null
+        val parcel = android.os.Parcel.obtain()
+        try {
+            parcel.unmarshall(bytes, 0, bytes.size)
+            parcel.setDataPosition(0)
+            android.os.Bundle.CREATOR.createFromParcel(parcel)
+        } finally {
+            parcel.recycle()
+        }
+    }.getOrNull()
+
+    fun delete(tabId: String) { file(tabId).delete() }
+
+    /** Removes the history of tabs that no longer exist. */
+    fun keepOnly(tabIds: Set<String>) {
+        dir.listFiles()?.filter { it.nameWithoutExtension !in tabIds }?.forEach { it.delete() }
+    }
+}

@@ -78,4 +78,13 @@ class NearbyTvsTest {
         val list = ObserveNearbyTvs(ObserveTvDevices(tvs), broken)().first { it.isNotEmpty() }
         assertEquals(listOf("MyCast"), list.map { it.name })
     }
+
+    @Test
+    fun `a listed Castify TV that does not answer is not responding`() = runTest {
+        val tvs = object : TvDiscovery { override fun devices(): Flow<List<TvDevice>> = flowOf(listOf(myCast)) }
+        val none = object : CastDeviceScanner { override fun devices(): Flow<List<CastDevice>> = flowOf(emptyList()) }
+        val list = ObserveNearbyTvs(ObserveTvDevices(tvs), none, probe = { false })()
+            .first { it.any { tv -> tv.status == TvStatus.NOT_RESPONDING } }
+        assertEquals(myCast, list.single().castify)
+    }
 }

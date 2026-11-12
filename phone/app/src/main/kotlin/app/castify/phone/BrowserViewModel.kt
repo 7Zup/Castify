@@ -142,7 +142,10 @@ class BrowserViewModel(
         _state.update { it.copy(pageError = null, addressBar = "", canGoBack = false, canGoForward = false) }
     }
 
-    /** The video went to the TV: the page's own player must pause (no double download, user rule). */
+    /**
+     * The video leaves for the TV: the page's own player must pause (no double download, user
+     * rule; a phone still playing is confusing). Fired when the send starts and once it worked.
+     */
     private val _pausePageMedia = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val pausePageMedia: SharedFlow<Unit> = _pausePageMedia.asSharedFlow()
 
@@ -153,6 +156,12 @@ class BrowserViewModel(
         // Remember how many videos the active tab had (badge in the tab grid).
         viewModelScope.launch {
             catalog.videos.map { it.size }.distinctUntilChanged().collect { tabs.onVideoCount(it) }
+        }
+        // The picked TV never answered: the Cast icon is grey again, say why.
+        viewModelScope.launch {
+            session.connectFailures.collect {
+                _messages.emit("${it.device.name} isn't responding. Check it's on the same Wi-Fi, or restart it.")
+            }
         }
     }
 
@@ -272,6 +281,7 @@ class BrowserViewModel(
         val tvName = session.state.value.device?.name ?: return
         val stream = video.stream.copy(thumbnailUrl = video.thumbnailUrl, subtitles = video.subtitles)
         _state.update { it.copy(sendingTo = tvName) }
+        _pausePageMedia.tryEmit(Unit)
         viewModelScope.launch {
             val result = session.send(stream, height, replace)
             _state.update { it.copy(sendingTo = null) }
@@ -283,6 +293,7 @@ class BrowserViewModel(
                 SendResult.NeedsConfirmation ->
                     _state.update { it.copy(pendingReplace = PendingReplace(video, height, tvName)) }
                 is SendResult.Failed -> _messages.emit(result.reason)
+                SendResult.NotConnected -> Unit // connectFailures already said it
             }
         }
     }

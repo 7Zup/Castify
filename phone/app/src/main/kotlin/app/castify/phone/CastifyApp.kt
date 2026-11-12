@@ -9,6 +9,7 @@ import app.castify.domain.browser.Favorites
 import app.castify.phone.data.PrefsFavoriteStore
 import app.castify.phone.data.PrefsHistoryStore
 import app.castify.phone.data.PrefsTabStore
+import app.castify.phone.data.TabHistoryStore
 import app.castify.phone.data.TabPreviewStore
 import android.util.Log
 import android.webkit.WebView
@@ -41,7 +42,10 @@ import app.castify.update.PrefsAcceptedUpdateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -60,6 +64,7 @@ class CastifyApp : Application() {
     }
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AppContainer(app: Application) {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -71,8 +76,10 @@ class AppContainer(app: Application) {
     private val observeTvDevices = ObserveTvDevices(UdpTvDiscovery(wifi), NsdTvDiscovery(nsd))
 
     // Castify TVs plus every other Google Cast device, shown as "App not launched".
-    val observeNearbyTvs = ObserveNearbyTvs(observeTvDevices, NsdCastDeviceScanner(nsd))
-    val tvSession = TvSession(HttpTvClient(wifi::open), appScope)
+    // Each listed Castify TV is asked for its status: a TV that stopped answering is "Not responding".
+    private val tvClient = HttpTvClient(wifi::open)
+    val observeNearbyTvs = ObserveNearbyTvs(observeTvDevices, NsdCastDeviceScanner(nsd), probe = { tvClient.status(it).isSuccess })
+    val tvSession = TvSession(tvClient, appScope)
     val history = BrowsingHistory(PrefsHistoryStore(app))
     val openPage = OpenPage()
     val favorites = Favorites(PrefsFavoriteStore(app))
@@ -99,7 +106,26 @@ class AppContainer(app: Application) {
     private val previews = TabPreviewStore(app)
     fun savePreview(tabId: String, bitmap: Bitmap) = previews.save(tabId, bitmap)
     fun loadPreview(tabId: String): Bitmap? = previews.load(tabId)
-    fun cleanPreviews() = previews.keepOnly(tabs.state.value.tabs.map { it.id }.toSet())
+    fun cleanPreviews() {
+        val ids = tabs.state.value.tabs.map { it.id }.toSet()
+        previews.keepOnly(ids)
+        tabHistory.keepOnly(ids)
+    }
+
+    /** Each tab's back / forward history, restored when its WebView is created again. */
+    private val tabHistory = TabHistoryStore(app)
+    fun saveTabHistory(tabId: String, webView: WebView) {
+        val state = android.os.Bundle()
+        if (webView.saveState(state) != null) tabHistory.save(tabId, state)
+    }
+    /** Restores [tabId]'s history in [webView]; false = nothing usable (load the address instead). */
+    fun restoreTabHistory(tabId: String, webView: WebView, url: String): Boolean {
+        val state = tabHistory.load(tabId) ?: return false
+        val list = runCatching { webView.restoreState(state) }.getOrNull() ?: return false
+        // The tab went home and opened another address meanwhile: that address wins.
+        return list.size > 0 && list.currentItem?.url == url
+    }
+    fun forgetTabHistory(tabId: String) = tabHistory.delete(tabId)
 
     init {
         // Show the media notification as soon as the connected TV plays something.
@@ -108,6 +134,15 @@ class AppContainer(app: Application) {
                 .map { it.connected && it.nowPlaying?.isActive == true }
                 .distinctUntilChanged()
                 .collect { active -> if (active) RemoteControlService.start(app) }
+        }
+        // The connected TV stopped answering: look for it on the Wi-Fi, it may have a new address
+        // (DHCP). Discovery only runs while the TV is unreachable.
+        appScope.launch {
+            tvSession.state
+                .map { it.connected && !it.connecting && !it.reachable }
+                .distinctUntilChanged()
+                .flatMapLatest { lost -> if (lost) observeTvDevices() else emptyFlow() }
+                .collect(tvSession::follow)
         }
         appScope.launch {
             tvSession.state.map { it.connected }.distinctUntilChanged().collect { connected ->
@@ -118,6 +153,9 @@ class AppContainer(app: Application) {
 
     /** Debug builds only: logs media-looking requests (tag `CastifyNet`) to compare sources. */
     private val logMedia = (app.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
+    // Debug builds: pages can be inspected from the Mac (chrome://inspect) to see why a site misbehaves.
+    init { if (logMedia) WebView.setWebContentsDebuggingEnabled(true) }
 
     /** Installs the sniffing adapter on the browser view; the UI only sees a WebView. */
     fun installSniffer(webView: WebView, viewModel: BrowserViewModel) {

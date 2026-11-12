@@ -379,7 +379,7 @@ private fun Waiting(deviceName: String, presence: TvPresence) {
                 done = phone, enabled = onWifi, Modifier.padding(top = 32.dp),
             )
             Step(
-                3, "Find a video, tap “Videos found”", "Once the video plays, you can lock your phone and enjoy",
+                3, "Find a video, tap the video icon at the top", "Once the video plays, you can lock your phone and enjoy",
                 done = false, enabled = onWifi, Modifier.padding(top = 32.dp),
             )
         }

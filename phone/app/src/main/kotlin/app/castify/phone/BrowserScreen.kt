@@ -45,7 +45,9 @@ import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material.icons.filled.OndemandVideo
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -89,13 +91,22 @@ import app.castify.domain.model.DetectedVideo
 import app.castify.domain.model.TvDevice
 import app.castify.domain.model.NearbyTv
 import app.castify.domain.model.DeviceKind
+import app.castify.domain.model.TvStatus
+import app.castify.domain.session.TvSession
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
+import app.castify.phone.data.PageMedia
 import app.castify.phone.ui.CastifyColors
 import app.castify.phone.ui.NowPlayingBar
-import app.castify.phone.ui.RemoteScreen
+import app.castify.phone.ui.ExpandingPlayer
+import app.castify.phone.ui.rememberRemoteExpansion
 import app.castify.phone.ui.SubtitlesSheet
 import app.castify.domain.playback.PlayerCommand
 import app.castify.phone.ui.Thumbnail
@@ -121,6 +132,7 @@ fun BrowserScreen(
     viewModel: BrowserViewModel,
     installSniffer: (WebView) -> Unit,
     savePreview: (String, Bitmap) -> Unit,
+    tabHistory: TabHistory,
     loadPreview: (String) -> Bitmap?,
     version: String,
 ) {
@@ -135,7 +147,7 @@ fun BrowserScreen(
     var videoSheetOpen by remember { mutableStateOf(false) }
     var connectSheetOpen by remember { mutableStateOf(false) }
     var disconnectDialog by remember { mutableStateOf(false) }
-    var remoteOpen by remember { mutableStateOf(false) }
+    val remote = rememberRemoteExpansion()
     var subtitlesOpen by remember { mutableStateOf(false) }
     var overlay by remember { mutableStateOf(Overlay.NONE) }
     var webView by remember { mutableStateOf<WebView?>(null) }
@@ -161,9 +173,9 @@ fun BrowserScreen(
         }
     }
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
-    LaunchedEffect(Unit) { viewModel.pausePageMedia.collect { webView?.evaluateJavascript(PAUSE_MEDIA_SCRIPT, null) } }
-    LaunchedEffect(playing) { if (!playing) remoteOpen = false }
-    BackHandler(enabled = state.canGoBack && !remoteOpen && overlay == Overlay.NONE && !onHome) { webView?.goBack() }
+    LaunchedEffect(Unit) { viewModel.pausePageMedia.collect { webView?.let(PageMedia::pause) } }
+    LaunchedEffect(playing) { if (!playing) remote.snapClosed() }
+    BackHandler(enabled = state.canGoBack && !remote.visible && overlay == Overlay.NONE && !onHome) { webView?.goBack() }
 
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -173,7 +185,9 @@ fun BrowserScreen(
             AddressBar(
                 text = state.addressBar,
                 onHome = onHome,
-                connectedTo = tv.device?.name,
+                cast = tv,
+                videoCount = if (onHome) null else videos.size,
+                onVideos = { videoSheetOpen = true },
                 tabCount = tabsState.tabs.size,
                 onTextChange = viewModel::onAddressChange,
                 onSubmit = viewModel::onAddressSubmit,
@@ -197,27 +211,18 @@ fun BrowserScreen(
             if (playing) {
                 NowPlayingBar(
                     tv,
-                    onOpen = { remoteOpen = true },
+                    expansion = remote,
                     onCommand = viewModel::control,
                     onSubtitles = { subtitlesOpen = true },
-                )
-            }
-        },
-        floatingActionButton = {
-            if (!onHome) {
-                val count = videos.size
-                ExtendedFloatingActionButton(
-                    onClick = { videoSheetOpen = true },
-                    icon = { Icon(Icons.Filled.Cast, contentDescription = null) },
-                    text = { Text(if (count == 0) "No video" else "$count video${if (count > 1) "s" else ""} found") },
-                    containerColor = if (count == 0) MaterialTheme.colorScheme.surfaceVariant
-                    else MaterialTheme.colorScheme.primaryContainer,
                 )
             }
         },
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             val url = activeTab.url
+            // Home screen: the tab starts over, its old pages are not "back" any more. Runs after
+            // the WebView's own save on leaving.
+            LaunchedEffect(activeTab.id, url == null) { if (url == null) tabHistory.forget(activeTab.id) }
             if (url == null) {
                 HomeScreen(
                     address = state.addressBar,
@@ -237,7 +242,7 @@ fun BrowserScreen(
                 )
             } else {
                 key(activeTab.id) {
-                    TabWebView(activeTab.id, url, installSniffer) { webView = it }
+                    TabWebView(activeTab.id, url, installSniffer, tabHistory) { webView = it }
                 }
                 // Over the WebView (kept underneath so Retry can reload it).
                 state.pageError?.let { error ->
@@ -329,10 +334,10 @@ fun BrowserScreen(
         )
     }
 
-    if (remoteOpen) {
-        RemoteScreen(
+    if (remote.visible) {
+        ExpandingPlayer(
             tv,
-            onClose = { remoteOpen = false },
+            expansion = remote,
             onCommand = viewModel::control,
             onRetry = viewModel::retry,
             onSubtitles = { subtitlesOpen = true },
@@ -363,9 +368,17 @@ private fun rememberNotificationPermission(): () -> Unit {
  * One WebView per **active** tab only (user rule: other tabs stay inactive). Recreated when
  * the active tab changes, so each tab has its own back stack; destroyed when it leaves.
  */
+/** Each tab's back / forward history, kept across WebView re-creations and app restarts. */
+interface TabHistory {
+    fun save(tabId: String, webView: WebView)
+    /** False = nothing usable: the caller loads the address. */
+    fun restore(tabId: String, webView: WebView, url: String): Boolean
+    fun forget(tabId: String)
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun TabWebView(tabId: String, initialUrl: String, installSniffer: (WebView) -> Unit, onReady: (WebView?) -> Unit) {
+private fun TabWebView(tabId: String, initialUrl: String, installSniffer: (WebView) -> Unit, tabHistory: TabHistory, onReady: (WebView?) -> Unit) {
     val context = LocalContext.current
     val webView = remember(tabId) {
         WebView(context).apply {
@@ -396,13 +409,15 @@ private fun TabWebView(tabId: String, initialUrl: String, installSniffer: (WebVi
                 }
             }
             installSniffer(this)
-            loadUrl(initialUrl)
+            // Back / forward history kept across restarts: Android Back and the sites' own back work.
+            if (!tabHistory.restore(tabId, this, initialUrl)) loadUrl(initialUrl)
         }
     }
     DisposableEffect(webView) {
         onReady(webView)
         onDispose {
             onReady(null)
+            tabHistory.save(tabId, webView)
             webView.stopLoading()
             webView.destroy()
         }
@@ -415,7 +430,8 @@ private fun TabWebView(tabId: String, initialUrl: String, installSniffer: (WebVi
             when (event) {
                 Lifecycle.Event.ON_STOP -> {
                     // onPause() is best effort for media: pause every video/audio element too.
-                    webView.evaluateJavascript(PAUSE_MEDIA_SCRIPT, null)
+                    PageMedia.pause(webView)
+                    tabHistory.save(tabId, webView)
                     webView.onPause()
                     webView.pauseTimers()
                 }
@@ -431,9 +447,6 @@ private fun TabWebView(tabId: String, initialUrl: String, installSniffer: (WebVi
     }
     AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
 }
-
-private const val PAUSE_MEDIA_SCRIPT =
-    "document.querySelectorAll('video,audio').forEach(function(m){try{m.pause()}catch(e){}})"
 
 /** Small screenshot of the page for the tab grid (a third of the screen size). */
 private fun capturePreview(webView: WebView): Bitmap? = runCatching {
@@ -455,7 +468,10 @@ private fun capturePreview(webView: WebView): Bitmap? = runCatching {
 private fun AddressBar(
     text: String,
     onHome: Boolean,
-    connectedTo: String?,
+    cast: TvSession.State,
+    /** Null = no page (home screen): no videos button. */
+    videoCount: Int?,
+    onVideos: () -> Unit,
     tabCount: Int,
     onTextChange: (String) -> Unit,
     onSubmit: () -> Unit,
@@ -499,12 +515,24 @@ private fun AddressBar(
         // default 48x48 minimum would put the gaps back, so it is lifted for these three only.
         // Widths give the same visible gap between Cast, tabs counter and ⋮ (the ⋮ glyph is thin).
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-            IconButton(onClick = onCast, modifier = Modifier.size(width = 44.dp, height = 48.dp)) {
-                if (connectedTo != null) {
-                    Icon(Icons.Filled.CastConnected, contentDescription = "Connected to $connectedTo", tint = CastifyColors.Red, modifier = Modifier.size(28.dp))
-                } else {
-                    Icon(Icons.Filled.Cast, contentDescription = "Connect to a TV", tint = CastifyColors.TextSecondary, modifier = Modifier.size(28.dp))
+            // Videos of the page (mockup option A, `docs/mockups/videos-button.html`): in the bar,
+            // never over the page, where it used to hide the sites' own player buttons.
+            if (videoCount != null) {
+                IconButton(
+                    onClick = onVideos,
+                    modifier = Modifier.size(width = 44.dp, height = 48.dp).semantics {
+                        contentDescription = if (videoCount == 0) "No video found" else "$videoCount video${if (videoCount > 1) "s" else ""} found"
+                    },
+                ) {
+                    BadgedBox(badge = {
+                        if (videoCount > 0) Badge(containerColor = CastifyColors.Red, contentColor = CastifyColors.TextPrimary) { Text("$videoCount") }
+                    }) {
+                        Icon(Icons.Filled.OndemandVideo, contentDescription = null, tint = CastifyColors.TextSecondary, modifier = Modifier.size(26.dp))
+                    }
                 }
+            }
+            IconButton(onClick = onCast, modifier = Modifier.size(width = 44.dp, height = 48.dp)) {
+                CastIcon(cast)
             }
             IconButton(
                 onClick = onTabs,
@@ -515,6 +543,33 @@ private fun AddressBar(
             menu()
         }
         Spacer(Modifier.width(6.dp))
+    }
+}
+
+/**
+ * Grey = no TV. Pulsing red = waiting for the TV's first answer. Red = connected and the TV
+ * answers. Grey "connected" icon = connected but the TV stopped answering.
+ */
+@Composable
+private fun CastIcon(cast: TvSession.State) {
+    val name = cast.device?.name
+    val modifier = Modifier.size(28.dp)
+    when {
+        name == null ->
+            Icon(Icons.Filled.Cast, contentDescription = "Connect to a TV", tint = CastifyColors.TextSecondary, modifier = modifier)
+        cast.connecting -> {
+            val pulse by rememberInfiniteTransition(label = "connecting").animateFloat(
+                initialValue = 1f,
+                targetValue = 0.3f,
+                animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
+                label = "connecting alpha",
+            )
+            Icon(Icons.Filled.Cast, contentDescription = "Connecting to $name", tint = CastifyColors.Red, modifier = modifier.alpha(pulse))
+        }
+        !cast.reachable ->
+            Icon(Icons.Filled.CastConnected, contentDescription = "Can't reach $name", tint = CastifyColors.TextSecondary, modifier = modifier)
+        else ->
+            Icon(Icons.Filled.CastConnected, contentDescription = "Connected to $name", tint = CastifyColors.Red, modifier = modifier)
     }
 }
 
@@ -655,7 +710,7 @@ private fun DevicePicker(devices: List<NearbyTv>?, onRefresh: () -> Unit, onPick
 @Composable
 private fun NearbyTvRow(device: NearbyTv, onPick: (TvDevice) -> Unit) {
     val castify = device.castify
-    val ready = castify != null
+    val ready = device.status == TvStatus.READY
     val dimmed = if (ready) 1f else 0.45f
     ListItem(
         leadingContent = {
@@ -673,7 +728,11 @@ private fun NearbyTvRow(device: NearbyTv, onPick: (TvDevice) -> Unit) {
                         .background(if (ready) CastifyColors.ReadyDot else CastifyColors.Disabled),
                 )
                 Text(
-                    if (ready) "Ready" else "App not launched",
+                    when (device.status) {
+                        TvStatus.READY -> "Ready"
+                        TvStatus.NOT_RESPONDING -> "Not responding"
+                        TvStatus.APP_NOT_LAUNCHED -> "App not launched"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (ready) CastifyColors.TextSecondary else CastifyColors.Disabled,
                 )

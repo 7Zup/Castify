@@ -1,6 +1,7 @@
 package app.castify.phone
 
 import android.os.Bundle
+import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,6 +28,11 @@ class MainActivity : ComponentActivity() {
                     viewModel,
                     installSniffer = { webView -> container.installSniffer(webView, viewModel) },
                     savePreview = container::savePreview,
+                    tabHistory = object : TabHistory {
+                        override fun save(tabId: String, webView: WebView) = container.saveTabHistory(tabId, webView)
+                        override fun restore(tabId: String, webView: WebView, url: String) = container.restoreTabHistory(tabId, webView, url)
+                        override fun forget(tabId: String) = container.forgetTabHistory(tabId)
+                    },
                     loadPreview = container::loadPreview,
                     version = container.updater.currentVersion.label,
                 )

@@ -47,6 +47,7 @@ class SniffingWebViewClient(private val events: BrowserEvents) : WebViewClient()
     fun install(webView: WebView) {
         userAgent = webView.settings.userAgentString
         webView.addJavascriptInterface(PageBridge(), BRIDGE_NAME)
+        PageMedia.install(webView)
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
