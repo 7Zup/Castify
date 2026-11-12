@@ -1,6 +1,9 @@
 package app.castify.domain.port
 
 import app.castify.domain.model.CastDevice
+import app.castify.domain.model.DetectedVideo
+import app.castify.domain.series.Show
+import app.castify.domain.series.ShowId
 import app.castify.domain.model.MediaStream
 import app.castify.domain.model.NowPlaying
 import app.castify.domain.model.PlaybackStats
@@ -45,7 +48,28 @@ interface ManifestFetcher {
     suspend fun fetchRange(url: String, headers: Map<String, String>, start: Long, endInclusive: Long): Result<ByteArray>
 }
 
+/** Episode lists of series (a public TV database). */
+interface ShowCatalog {
+    /** Null when the series is unknown or the database can't be reached. */
+    suspend fun show(id: ShowId): Show?
+}
+
+/**
+ * Opens a page out of sight (the phone loads another episode's page, hidden) and returns the
+ * first watchable video it detects, with the same rules as the visible browser. Null after
+ * [timeoutMs] without one.
+ */
+interface EpisodeLoader {
+    suspend fun findVideo(url: String, timeoutMs: Long): DetectedVideo?
+}
+
 // ---- TV side ----
+
+/** Settings kept on the TV, shared by every phone. */
+interface TvSettings {
+    /** Plays the next episode at the end of one (user rule: off by default). */
+    var autoNext: Boolean
+}
 
 /** Serves phones on the LAN: play requests, status, playback commands. */
 interface CastReceiver {

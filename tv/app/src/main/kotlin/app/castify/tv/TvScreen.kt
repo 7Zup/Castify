@@ -52,6 +52,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.PlayerView
 import app.castify.domain.model.PlaybackState
 import app.castify.domain.model.PlaybackStats
+import app.castify.domain.series.Episode
+import app.castify.domain.series.SeriesInfo
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import app.castify.domain.status.PlaybackFailure
 import app.castify.domain.status.TvPresence
 import app.castify.domain.update.AppUpdater
@@ -95,8 +101,14 @@ fun TvScreenContent(viewModel: TvViewModel, surface: VideoSurface) {
                         SeekBubble(state.seekBubbleMs, Modifier.align(Alignment.Center).padding(bottom = 160.dp))
                     }
                     if (state.controls != null || state.timeBarVisible) {
-                        TimeBar(state.stats, state.current?.title, state.controls, Modifier.align(Alignment.BottomCenter))
+                        TimeBar(state.stats, state.current?.title, state.controls, state.series != null, Modifier.align(Alignment.BottomCenter))
                     }
+                    val series = state.series
+                    if (state.nextVisible && series != null) {
+                        series.next?.let { NextButton(it, state.nextCountdown, Modifier.align(Alignment.BottomEnd)) }
+                    }
+                    state.episodesPanel?.let { panel -> if (series != null) EpisodesPanel(series, panel, state.autoNext) }
+                    state.episodeLoad?.let { EpisodeLoadCard(it) }
                     if (state.diagnosticsVisible) {
                         Diagnostics(state.stats, Modifier.align(Alignment.TopStart))
                     }
@@ -189,7 +201,7 @@ private const val VISIBLE_MENU_ROWS = 8
  * row is shown below it.
  */
 @Composable
-private fun TimeBar(stats: PlaybackStats, title: String?, controls: ControlsState?, modifier: Modifier) {
+private fun TimeBar(stats: PlaybackStats, title: String?, controls: ControlsState?, hasEpisodes: Boolean, modifier: Modifier) {
     // Layout "B" chosen by the user: compact content in a dark rounded panel at the bottom.
     Column(
         modifier
@@ -241,16 +253,16 @@ private fun TimeBar(stats: PlaybackStats, title: String?, controls: ControlsStat
                 duration?.takeIf { it > 0 }?.let { Text(formatTime(it), color = TvColors.TextSecondary, fontSize = 12.sp) }
             }
         }
-        if (controls != null) ControlButtons(stats, controls.focus)
+        if (controls != null) ControlButtons(stats, controls.focus, hasEpisodes)
     }
 }
 
 /**
- * ⟲10 · Play/Pause · 10⟳ on the left, CC on the right (no Stop: Back / Home stop).
- * Focus = white filled circle + slight scale (design.md); labels under every button.
+ * ⟲10 · Play/Pause · 10⟳ on the left, CC (and Episodes for a series) on the right (no Stop:
+ * Back / Home stop). Focus = white filled circle + slight scale (design.md).
  */
 @Composable
-private fun ControlButtons(stats: PlaybackStats, focus: ControlFocus) {
+private fun ControlButtons(stats: PlaybackStats, focus: ControlFocus, hasEpisodes: Boolean) {
     val seekable = !stats.isLive && (stats.durationMs ?: 0) > 0
     val paused = stats.state == PlaybackState.PAUSED
     val subtitlesOn = stats.selectedSubtitleId != null
@@ -272,6 +284,179 @@ private fun ControlButtons(stats: PlaybackStats, focus: ControlFocus) {
             },
             focus == ControlFocus.SUBTITLES,
         )
+        if (hasEpisodes) ControlButton(Icons.Filled.VideoLibrary, "Episodes", focus == ControlFocus.EPISODES)
+    }
+}
+
+/**
+ * `Next episode` bottom right (mockup T3), always focused: OK plays it, Back hides it. With
+ * Auto next on, a countdown at the very end (T4).
+ */
+@Composable
+private fun NextButton(next: Episode, countdown: Int?, modifier: Modifier) {
+    Row(
+        modifier
+            .padding(40.dp)
+            .border(3.dp, TvColors.TextPrimary.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+            .padding(3.dp)
+            .background(TvColors.TextPrimary, RoundedCornerShape(8.dp))
+            .padding(horizontal = 22.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = TvColors.Video, modifier = Modifier.size(28.dp))
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(
+                if (countdown != null) "Next episode in $countdown s" else "Next episode",
+                color = TvColors.Video,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                listOfNotNull(next.number.label, next.title).joinToString(" · "),
+                color = TvColors.Surface,
+                fontSize = 13.sp,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/**
+ * Episodes panel (mockup T2): season chips, the season's episodes, Auto next. The focused row
+ * shows the focus (white outline + slight scale); the playing episode has a red badge.
+ */
+@Composable
+private fun EpisodesPanel(series: SeriesInfo, panel: EpisodesPanelState, autoNext: Boolean) {
+    val show = series.show
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(TvColors.Scrim)
+            // TV safe area: nothing near the bottom edge (some TVs crop it).
+            .padding(start = 56.dp, end = 56.dp, top = 40.dp, bottom = 56.dp),
+    ) {
+        Text(series.showName, color = TvColors.TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+        if (series.episodes.isEmpty()) {
+            Text("Episode list unavailable", color = TvColors.TextSecondary, fontSize = 18.sp, modifier = Modifier.padding(top = 16.dp))
+        } else {
+            Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                show.seasons.forEach { season ->
+                    val selected = season == panel.season
+                    val focused = selected && panel.row == EpisodesRow.SEASONS
+                    Text(
+                        "Season $season",
+                        color = if (selected) TvColors.Video else TvColors.TextSecondary,
+                        fontSize = 15.sp,
+                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Normal,
+                        modifier = Modifier
+                            .scale(if (focused) 1.08f else 1f)
+                            .then(if (focused) Modifier.border(2.dp, TvColors.TextPrimary, RoundedCornerShape(50)).padding(3.dp) else Modifier)
+                            .background(if (selected) TvColors.TextPrimary else TvColors.Surface, RoundedCornerShape(50))
+                            .padding(horizontal = 16.dp, vertical = 7.dp),
+                    )
+                }
+            }
+            val episodes = show.episodesOf(panel.season)
+            // A window of cards that keeps the focused one in view.
+            val first = (panel.episodeIndex - 2).coerceIn(0, (episodes.size - VISIBLE_EPISODES).coerceAtLeast(0))
+            Row(Modifier.padding(top = 28.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                episodes.drop(first).take(VISIBLE_EPISODES).forEachIndexed { offset, episode ->
+                    val focused = panel.row == EpisodesRow.EPISODES && first + offset == panel.episodeIndex
+                    EpisodeCard(episode, playing = episode.number == series.current, focused = focused)
+                }
+            }
+        }
+        val focused = panel.row == EpisodesRow.AUTO_NEXT
+        Row(
+            Modifier
+                .padding(top = 32.dp)
+                .scale(if (focused) 1.05f else 1f)
+                .then(if (focused) Modifier.border(2.dp, TvColors.TextPrimary, RoundedCornerShape(8.dp)) else Modifier)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(20.dp)
+                    .border(2.dp, if (autoNext) TvColors.Red else TvColors.TextSecondary, RoundedCornerShape(4.dp))
+                    .background(if (autoNext) TvColors.Red else Color.Transparent, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (autoNext) Text("✓", color = TvColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            Text("Auto next", color = TvColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp))
+            Text("plays the next one at the end", color = TvColors.TextSecondary, fontSize = 14.sp, modifier = Modifier.padding(start = 12.dp))
+        }
+    }
+}
+
+private const val VISIBLE_EPISODES = 5
+
+@Composable
+private fun EpisodeCard(episode: Episode, playing: Boolean, focused: Boolean) {
+    Column(Modifier.width(200.dp).scale(if (focused) 1.06f else 1f)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(112.dp)
+                .then(if (focused) Modifier.border(3.dp, TvColors.TextPrimary, RoundedCornerShape(6.dp)) else Modifier)
+                .background(TvColors.Surface, RoundedCornerShape(6.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("E${episode.number.episode}", color = TvColors.TextSecondary, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            // The episode's picture (TVmaze) over the number, which stays as the placeholder.
+            episode.imageUrl?.let { url ->
+                AsyncImage(
+                    model = url,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize().clip(RoundedCornerShape(6.dp)),
+                )
+            }
+            if (playing) {
+                Text(
+                    "PLAYING",
+                    color = TvColors.TextPrimary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(8.dp)
+                        .background(TvColors.Red, RoundedCornerShape(3.dp))
+                        .padding(horizontal = 5.dp, vertical = 2.dp),
+                )
+            }
+        }
+        Text(
+            listOfNotNull(episode.number.episode.toString(), episode.title).joinToString(" · "),
+            color = TvColors.TextPrimary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        episode.runtimeMin?.let { Text("$it min", color = TvColors.TextSecondary, fontSize = 12.sp) }
+    }
+}
+
+/** An episode the phone is finding (mockup T5), then Retry / Back if it could not. */
+@Composable
+private fun EpisodeLoadCard(load: EpisodeLoad) {
+    Box(Modifier.fillMaxSize().background(TvColors.Scrim), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (!load.failed) {
+                CircularProgressIndicator(color = TvColors.Red)
+                Text("Loading ${load.number.label}…", color = TvColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 20.dp))
+                Text("Your phone is finding the video", color = TvColors.TextSecondary, fontSize = 16.sp, modifier = Modifier.padding(top = 6.dp))
+            } else {
+                Text("Couldn't load ${load.number.label}", color = TvColors.TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Check your phone is on and on the same Wi-Fi", color = TvColors.TextSecondary, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.padding(top = 28.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    ErrorButtonView("Retry", load.focus == ErrorButton.RETRY)
+                    ErrorButtonView("Back", load.focus == ErrorButton.HOME)
+                }
+            }
+        }
     }
 }
 

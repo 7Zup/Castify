@@ -17,6 +17,8 @@ import app.castify.domain.model.NearbyTv
 import app.castify.domain.model.TvDevice
 import app.castify.domain.playback.PlayerCommand
 import app.castify.domain.session.TvSession
+import app.castify.domain.series.EpisodeNumber
+import app.castify.domain.series.EpisodePlayer
 import app.castify.domain.port.NetworkMonitor
 import app.castify.domain.status.PageError
 import app.castify.domain.session.TvSession.SendResult
@@ -66,7 +68,16 @@ class BrowserViewModel(
     private val history: BrowsingHistory,
     private val favorites: Favorites,
     private val network: NetworkMonitor,
+    private val episodes: EpisodePlayer,
 ) : ViewModel() {
+
+    /** The series the TV plays (sent from this phone): episodes, Auto next. Null = not a series. */
+    val series: StateFlow<EpisodePlayer.State?> = episodes.state
+
+    fun playEpisode(number: EpisodeNumber) = episodes.play(number)
+
+    fun setAutoNext(enabled: Boolean) = episodes.setAutoNext(enabled)
+
 
     /** Phone has internet (home screen banner P3). */
     val online: StateFlow<Boolean> = network.online
@@ -156,6 +167,10 @@ class BrowserViewModel(
         // Remember how many videos the active tab had (badge in the tab grid).
         viewModelScope.launch {
             catalog.videos.map { it.size }.distinctUntilChanged().collect { tabs.onVideoCount(it) }
+        }
+        // An episode page: fetch its series' episodes now, so sending it is not slowed down.
+        viewModelScope.launch {
+            catalog.episodeAddress.collect { address -> if (address != null) episodes.showOf(address) }
         }
         // The picked TV never answered: the Cast icon is grey again, say why.
         viewModelScope.launch {
@@ -279,11 +294,14 @@ class BrowserViewModel(
 
     private fun doSend(video: DetectedVideo, height: Int?, replace: Boolean) {
         val tvName = session.state.value.device?.name ?: return
-        val stream = video.stream.copy(thumbnailUrl = video.thumbnailUrl, subtitles = video.subtitles)
+        val address = catalog.episodeAddress.value
         _state.update { it.copy(sendingTo = tvName) }
         _pausePageMedia.tryEmit(Unit)
         viewModelScope.launch {
+            // An episode carries its series (episodes and Next on the TV).
+            val stream = episodes.withSeries(video.stream.copy(thumbnailUrl = video.thumbnailUrl, subtitles = video.subtitles), address)
             val result = session.send(stream, height, replace)
+            if (result == SendResult.Sent) episodes.onSent(stream, address, height)
             _state.update { it.copy(sendingTo = null) }
             when (result) {
                 SendResult.Sent -> {
@@ -312,6 +330,7 @@ class BrowserViewModel(
                     container.history,
                     container.favorites,
                     container.network,
+                    container.episodePlayer,
                 )
             }
         }

@@ -35,6 +35,30 @@ class ProtocolTest {
     )
 
     @Test
+    fun `series, auto next and episode requests cross the wire`() {
+        val series = app.castify.domain.series.SeriesInfo(
+            "Example Show",
+            app.castify.domain.series.EpisodeNumber(1, 2),
+            listOf(app.castify.domain.series.Episode(app.castify.domain.series.EpisodeNumber(1, 2), "Two", 30, "https://img/2.jpg")),
+        )
+        val episode = stream.copy(series = series)
+        val json = CastifyProtocol.json.encodeToString(PlayRequest.serializer(), episode.toPlayRequest())
+        assertEquals(series, CastifyProtocol.json.decodeFromString(PlayRequest.serializer(), json).toMediaStream()?.series)
+
+        val now = app.castify.domain.model.NowPlaying(
+            app.castify.domain.model.PlaybackState.PLAYING,
+            autoNext = true,
+            episodeRequest = app.castify.domain.series.EpisodeRequest(5, app.castify.domain.series.EpisodeNumber(2, 1)),
+        )
+        assertEquals(now, now.toStatusResponse().toNowPlaying())
+
+        listOf(
+            app.castify.domain.playback.PlayerCommand.SetAutoNext(true),
+            app.castify.domain.playback.PlayerCommand.EpisodeFailed(5),
+        ).forEach { assertEquals(it, it.toControlRequest()!!.toPlayerCommand()) }
+    }
+
+    @Test
     fun `unknown subtitle formats are dropped, not fatal`() {
         val request = stream.toPlayRequest().copy(
             subtitles = listOf(SubtitleFile("https://a/x.sub", "MICRODVD"), SubtitleFile("https://a/en.srt", "SRT", "en")),

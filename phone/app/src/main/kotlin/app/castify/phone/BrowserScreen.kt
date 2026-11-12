@@ -155,6 +155,7 @@ fun BrowserScreen(
     var connectSheetOpen by remember { mutableStateOf(false) }
     var disconnectDialog by remember { mutableStateOf(false) }
     val remote = rememberRemoteExpansion()
+    val series by viewModel.series.collectAsStateWithLifecycle()
     var fullscreen by remember { mutableStateOf<Fullscreen?>(null) }
     var subtitlesOpen by remember { mutableStateOf(false) }
     var overlay by remember { mutableStateOf(Overlay.NONE) }
@@ -346,6 +347,9 @@ fun BrowserScreen(
         ExpandingPlayer(
             tv,
             expansion = remote,
+            series = series,
+            onEpisode = viewModel::playEpisode,
+            onAutoNext = viewModel::setAutoNext,
             onCommand = viewModel::control,
             onRetry = viewModel::retry,
             onSubtitles = { subtitlesOpen = true },

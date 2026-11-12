@@ -57,9 +57,19 @@ _Last updated: 11/12/2026_
   - debug builds allow `chrome://inspect` on the WebView.
   Not checked on a device yet: `Not responding` / IP follow, tab history after a restart, TV
   welcome step 3 text (TV not reinstalled).
-- Fix on `fix/site-player-panels` (installed on the phone, to check): a site player's Settings /
-  Subtitles panels opened collapsed (CSS `vh` = 0 because the WebView was wrap-content) and its
-  fullscreen button did nothing (no `onShowCustomView`). PiP stays unavailable in a WebView.
+- Site player panels + fullscreen (PR #10), released in **v0.5.4**: Settings / Subtitles
+  panels opened collapsed (CSS `vh` = 0, WebView was wrap-content), fullscreen button did
+  nothing (no `onShowCustomView`). Panels checked by the user. PiP unavailable in a WebView.
+- **TV shows v1** on `feat/tv-shows` (not committed yet), spec `docs/features/episodes.md`:
+  episode recognized from the address, list from TVmaze (via Wikidata), phone remote
+  Episodes section + Auto next, TV Episodes button / panel, `Next` 30 s before the end,
+  10 s Auto next countdown, loading / failed card; other episodes loaded in a hidden WebView.
+  A phone joining a running episode gets the series from the TV status; TV requests are
+  claimed by one phone. Fixed: crash when scrolling the remote (NaN thumbnail scale).
+  131 tests green. Phone + HD Chromecast installed 11/12/2026; the user reports it works
+  (Next, Auto next, episode change all checked). Then: TV episode pictures (Coil added to the
+  TV app) and Auto next row moved up (was cut at the bottom): built, not installed yet (TV
+  playing). The 4K Chromecast is not updated.
 - Declined 11/12/2026: TV volume from the phone ("tout ou rien"), findings in ROADMAP.
 - **In-app update + version label** (branch `feat/app-update`, spec
   `docs/features/app-update.md`, mockup `docs/mockups/app-update.html`, publishing
@@ -96,7 +106,8 @@ _Last updated: 11/12/2026_
 ## Next step
 
 - **TV shows** (episodes + seasons on phone and TV, `Next` 30 s before the end, `Auto next`):
-  go given by the user on 11/12/2026; branch `feat/tv-shows` (from `main` after v0.5.3).
+  v1 built on `feat/tv-shows` (see In progress): next = the user's check on the phone + TV
+  (install the TV app first), then PR + release.
   Scope and approach in `docs/ROADMAP.md` ("Next: TV shows"), mockup
   `docs/mockups/episodes.html` (approved).
 

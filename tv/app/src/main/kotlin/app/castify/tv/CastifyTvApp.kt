@@ -9,6 +9,7 @@ import app.castify.domain.usecase.HandlePlayerCommand
 import app.castify.domain.usecase.PlayStream
 import app.castify.tv.data.ExoPlayerAdapter
 import app.castify.tv.data.LanCastReceiver
+import app.castify.tv.data.PrefsTvSettings
 import app.castify.tv.data.AndroidNetworkMonitor
 import app.castify.update.ApkInstaller
 import app.castify.update.GitHubReleaseSource
@@ -36,6 +37,7 @@ class TvContainer(app: Application) {
     val playStream = PlayStream(player)
     val network = AndroidNetworkMonitor(app)
     val handlePlayerCommand = HandlePlayerCommand(player)
+    val settings = PrefsTvSettings(app)
 
     // In-app update from the public GitHub releases (docs/features/app-update.md).
     private val apkInstaller = ApkInstaller(app)

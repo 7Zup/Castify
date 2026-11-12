@@ -12,7 +12,7 @@ Decisions: ADR 0001 (native Android), ADR 0002 (own TV app instead of a Cast rec
 | `:phone:app` | Android app | `:core:domain`, `:phone:data`, `:shared:update`, Coil, Media3 session | `AppContainer` (DI), `BrowserViewModel`, `BrowserScreen`, `ui/` (theme, remote, now-playing bar), `RemoteControlService` (media notification) |
 | `:tv:data` | Android library | `:core:*`, Ktor, Media3 | `LanCastReceiver` (HTTP + NSD), `ExoPlayerAdapter` |
 | `:shared:update` | Android library | `:core:domain` | In-app update: `GitHubReleaseSource`, `ApkInstaller` + `InstallResultReceiver` (docs/features/app-update.md) |
-| `:tv:app` | Android TV app | `:core:domain`, `:tv:data`, `:shared:update` | `TvContainer` (DI), `TvViewModel`, `TvActivity` (keys), `TvScreen` |
+| `:tv:app` | Android TV app | `:core:domain`, `:tv:data`, `:shared:update`, Coil (episode pictures) | `TvContainer` (DI), `TvViewModel`, `TvActivity` (keys), `TvScreen` |
 
 ## Ports (in `:core:domain`)
 
@@ -22,6 +22,9 @@ Decisions: ADR 0001 (native Android), ADR 0002 (own TV app instead of a Cast rec
 | `TvDiscovery` | phone | `UdpTvDiscovery`, `NsdTvDiscovery` (merged by `ObserveTvDevices`) |
 | `CastDeviceScanner` | phone | `NsdCastDeviceScanner` (`_googlecast._tcp`, merged with the Castify TVs by `ObserveNearbyTvs`, which also probes each Castify TV's `/status` every 3 s: `Not responding`) |
 | `TvClient` (play, status, control) | phone | `HttpTvClient` |
+| `ShowCatalog` | phone | `TvMazeShowCatalog` (TVmaze, TMDB id mapped through Wikidata) |
+| `EpisodeLoader` | phone | `WebViewEpisodeLoader` (hidden WebView, used by `EpisodePlayer`) |
+| `TvSettings` | TV | `PrefsTvSettings` (Auto next) |
 | `TabStore` / `HistoryStore` / `FavoriteStore` | phone | `PrefsTabStore` / `PrefsHistoryStore` / `PrefsFavoriteStore` |
 | `CastReceiver` | TV | `LanCastReceiver` |
 | `Player` | TV | `ExoPlayerAdapter` |
@@ -46,6 +49,8 @@ flowchart LR
   CL -- "POST /play {url, headers}" --> SV
   TS[TvSession] -- "GET /status every 1-3 s (first answer = connected), POST /control" --> SV
   ND -. "TV unreachable: follow it to a new address" .-> TS
+  EP[EpisodePlayer] -- "other episode: hidden WebView, then /play replace" --> TS
+  SV -. "/status episodeRequest" .-> EP
   UI --> TS
   TS --> NS[RemoteControlService notification]
   ND -. "UDP 47801 broadcast + mDNS _castify._tcp" .- SV
