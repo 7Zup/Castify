@@ -46,7 +46,8 @@ unavailable", the rest of the remote works as before.
   `EpisodeLoader` (phone), `TvSettings` (TV).
 - `VideoCatalog.episodeAddress`: the page's address, else the first embedded player address.
 - Sending a video from an episode page attaches its `SeriesInfo` (title on the TV:
-  `Show · S5 E2 · Title`). The quality picked for it is reused for the next episodes.
+  `Show · S5 E2 · Title`). Other episodes start in their best quality (user rule, see
+  `quality.md`).
 - Another episode = `EpisodeLoader.findVideo(address.withEpisode(n))`:
   `WebViewEpisodeLoader` opens the address in a WebView nobody sees, players muted, same
   detection as the browser, keeps the longest video of 3 min or more (2 s after the first

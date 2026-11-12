@@ -25,8 +25,12 @@ object ReleaseNotes {
                     tvDetail = "Press ▼, then Episodes, to change episode or season.",
                 ),
                 ReleaseNote.Item("Next episode", "A button 30 s before the end. Tick Auto next to chain them."),
+                ReleaseNote.Item(
+                    "Pick the quality",
+                    "Tap the quality next to CC in the remote. A new episode starts in the best one.",
+                    tvDetail = "Press ▼, then the HD button. A new episode starts in the best one.",
+                ),
                 ReleaseNote.Item("Updates without the hassle", "The TV looks for a new version each time you come back to it."),
-                ReleaseNote.Item("What's new", "This window after each update, and every version in the menu.", tvDetail = "This window after each update. All versions: ▼ then OK on the home screen."),
             ),
         ),
         ReleaseNote(

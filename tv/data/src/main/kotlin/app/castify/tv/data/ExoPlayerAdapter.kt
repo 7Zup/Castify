@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.TrackGroup
 import androidx.media3.common.TrackSelectionOverride
+import app.castify.domain.inspection.QualityLabel
 import androidx.media3.common.Tracks
 import app.castify.domain.subtitles.SubtitleFormat
 import app.castify.domain.subtitles.SubtitleTrack
@@ -195,6 +196,15 @@ class ExoPlayerAdapter(private val context: Context) : Player {
         }
     }
 
+    /** Same lock as a quality picked before sending: min and max height = [height]. */
+    override fun selectQuality(height: Int) {
+        val trackSelector = selector ?: return
+        trackSelector.parameters = trackSelector.buildUponParameters()
+            .setMinVideoSize(0, height)
+            .setMaxVideoSize(Int.MAX_VALUE, height)
+            .build()
+    }
+
     override fun stop() {
         releasePlayer()
         _stats.value = PlaybackStats(state = PlaybackState.IDLE)
@@ -227,8 +237,14 @@ class ExoPlayerAdapter(private val context: Context) : Player {
             _stats.update { it.copy(state = state) }
         }
 
-        /** Lists text tracks (stream + side-loaded files) and which one is shown. */
+        /** Lists text tracks (stream + side-loaded files) and which one is shown, and the video qualities. */
         override fun onTracksChanged(tracks: Tracks) {
+            val sizes = tracks.groups
+                .filter { it.type == C.TRACK_TYPE_VIDEO }
+                .flatMap { group -> (0 until group.length).filter(group::isTrackSupported).map(group::getTrackFormat) }
+                .filter { it.height > 0 }
+                .map { format -> format.width.takeIf { it > 0 } to format.height }
+            _stats.update { it.copy(qualities = QualityLabel.qualities(sizes)) }
             val map = linkedMapOf<String, Pair<TrackGroup, Int>>()
             val list = mutableListOf<SubtitleTrack>()
             var selected: String? = null
@@ -292,7 +308,7 @@ class ExoPlayerAdapter(private val context: Context) : Player {
             limiter.bitsPerSecond = DataRules.maxRateBps(format.bitrate.takeIf { it > 0 }?.toLong())
             _stats.update { it.copy(rateCapKbps = limiter.bitsPerSecond / 1_000) }
             val bitrate = if (format.bitrate > 0) " · %.1f Mbps".format(format.bitrate / 1_000_000.0) else ""
-            _stats.update { it.copy(format = "$type$size$bitrate") }
+            _stats.update { it.copy(format = "$type$size$bitrate", qualityHeight = format.height.takeIf { h -> h > 0 }) }
         }
     }
 

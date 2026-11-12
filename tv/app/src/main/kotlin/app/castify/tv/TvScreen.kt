@@ -56,6 +56,9 @@ import app.castify.domain.series.Episode
 import app.castify.domain.update.ReleaseNote
 import app.castify.domain.series.SeriesInfo
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.HighQuality
+import app.castify.domain.model.NowPlaying
+import app.castify.domain.model.Quality
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
@@ -142,6 +145,9 @@ fun TvScreenContent(viewModel: TvViewModel, surface: VideoSurface) {
                     state.subtitleMenu?.let { menu ->
                         SubtitleMenuPanel(menu, state.stats.selectedSubtitleId, Modifier.align(Alignment.CenterEnd))
                     }
+                    state.qualityMenu?.let { menu ->
+                        QualityMenuPanel(menu, currentQuality(state.stats)?.height, Modifier.align(Alignment.CenterEnd))
+                    }
                 }
                 TvScreen.ERROR -> PlaybackFailed(state)
             }
@@ -206,6 +212,48 @@ private fun SubtitleMenuPanel(menu: SubtitleMenuState, selectedId: String?, modi
 }
 
 private const val VISIBLE_MENU_ROWS = 8
+
+private fun currentQuality(stats: PlaybackStats): Quality? =
+    NowPlaying(PlaybackState.PLAYING, qualities = stats.qualities, qualityHeight = stats.qualityHeight).currentQuality
+
+/** Quality menu (mockup quality.html, T2): same look as the subtitle menu, the playing one checked. */
+@Composable
+private fun QualityMenuPanel(menu: QualityMenuState, currentHeight: Int?, modifier: Modifier) {
+    Column(
+        modifier
+            .padding(32.dp)
+            .width(260.dp)
+            .background(TvColors.Scrim, RoundedCornerShape(12.dp))
+            .padding(vertical = 16.dp),
+    ) {
+        Text("Quality", color = TvColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+        if (menu.options.size <= 1) {
+            Text("Only one quality for this video", color = TvColors.TextSecondary, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            return@Column
+        }
+        menu.options.forEachIndexed { index, option ->
+            val focused = index == menu.focused
+            Row(
+                Modifier
+                    .padding(horizontal = 12.dp, vertical = 2.dp)
+                    .fillMaxWidth()
+                    .scale(if (focused) 1.04f else 1f)
+                    .then(if (focused) Modifier.border(2.dp, TvColors.TextPrimary, RoundedCornerShape(8.dp)) else Modifier)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (index == 0) "${option.label} · best" else option.label,
+                    color = if (focused) TvColors.TextPrimary else TvColors.TextSecondary,
+                    fontSize = 17.sp,
+                    fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.weight(1f),
+                )
+                if (option.height == currentHeight) Text("✓", color = TvColors.Red, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
 
 /**
  * Bottom time bar (pause, or 3 s after a seek): title if known, `❚❚ Paused`, progress bar
@@ -297,6 +345,12 @@ private fun ControlButtons(stats: PlaybackStats, focus: ControlFocus, hasEpisode
                 else -> "Subtitles · Off"
             },
             focus == ControlFocus.SUBTITLES,
+        )
+        val quality = currentQuality(stats)
+        ControlButton(
+            Icons.Filled.HighQuality,
+            if (quality != null) "Quality · ${quality.label}" else "Quality",
+            focus == ControlFocus.QUALITY,
         )
         if (hasEpisodes) ControlButton(Icons.Filled.VideoLibrary, "Episodes", focus == ControlFocus.EPISODES)
     }

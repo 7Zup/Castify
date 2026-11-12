@@ -251,6 +251,7 @@ fun ExpandingPlayer(
     onSubtitles: () -> Unit,
     onEpisode: (EpisodeNumber) -> Unit,
     onAutoNext: (Boolean) -> Unit,
+    onQuality: () -> Unit,
 ) {
     val onClose: () -> Unit = expansion::close
     BackHandler(onBack = onClose)
@@ -313,7 +314,7 @@ fun ExpandingPlayer(
                 .graphicsLayer { alpha = ((expansion.value - 0.5f) / 0.5f).coerceIn(0f, 1f) }
                 .drawWithContent { clipRect(top = top()) { this@drawWithContent.drawContent() } },
         ) {
-            RemoteContent(tv, now, series, onClose, onCommand, onRetry, onSubtitles, onEpisode, onAutoNext) { remoteThumb = it }
+            RemoteContent(tv, now, series, onClose, onCommand, onRetry, onSubtitles, onEpisode, onAutoNext, onQuality) { remoteThumb = it }
         }
 
         // 4. The bar's text and buttons, riding the top edge, gone in the first third of the move.
@@ -348,6 +349,7 @@ private fun RemoteContent(
     onSubtitles: () -> Unit,
     onEpisode: (EpisodeNumber) -> Unit,
     onAutoNext: (Boolean) -> Unit,
+    onQuality: () -> Unit,
     onThumbnailPlaced: (Rect) -> Unit,
 ) {
     Column(
@@ -379,6 +381,7 @@ private fun RemoteContent(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
                 )
+                if (tv.reachable) QualityButton(now, onQuality)
                 if (tv.reachable) SubtitlesButton(now, onSubtitles, size = 48)
             }
         }

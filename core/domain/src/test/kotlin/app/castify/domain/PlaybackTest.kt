@@ -28,6 +28,7 @@ class PlaybackTest {
         override fun seekBy(deltaMs: Long) { calls += "seek:$deltaMs" }
         override fun seekTo(positionMs: Long) { calls += "seekTo:$positionMs" }
         override fun selectSubtitle(trackId: String?) { calls += "sub:${trackId ?: "off"}" }
+        override fun selectQuality(height: Int) { calls += "quality:$height" }
         override fun stop() { calls += "stop" }
         override fun release() { calls += "release" }
     }

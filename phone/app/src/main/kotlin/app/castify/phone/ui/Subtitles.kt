@@ -1,5 +1,8 @@
 package app.castify.phone.ui
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -81,6 +84,64 @@ fun SubtitlesSheet(now: NowPlaying, onPick: (String?) -> Unit, onDismiss: () -> 
                         modifier = Modifier.clickable { onPick(option.trackId); onDismiss() },
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Quality pill of the full remote (mockup `docs/mockups/quality.html`, P1): the playing
+ * quality, red outline; greyed when the video has only one.
+ */
+@Composable
+fun QualityButton(now: NowPlaying, onClick: () -> Unit) {
+    val several = now.qualities.size > 1
+    val label = now.currentQuality?.label ?: "HD"
+    androidx.compose.material3.TextButton(
+        onClick = onClick,
+        modifier = Modifier.semantics { contentDescription = "Quality: $label" },
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = if (several) CastifyColors.TextPrimary else CastifyColors.Disabled,
+            modifier = Modifier
+                .border(1.5.dp, if (several) CastifyColors.Red else CastifyColors.Disabled, androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
+                .padding(horizontal = 5.dp, vertical = 1.dp),
+        )
+    }
+}
+
+/** The video's qualities, best first, the playing one checked (mockup P2). A tap switches the TV. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun QualitySheet(now: NowPlaying, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = CastifyColors.Surface) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
+            Text(
+                "Quality",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+            if (now.qualities.size <= 1) {
+                Text(
+                    "Only one quality for this video",
+                    color = CastifyColors.TextSecondary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                )
+                return@Column
+            }
+            val current = now.currentQuality?.height
+            now.qualities.forEachIndexed { index, quality ->
+                ListItem(
+                    headlineContent = { Text(quality.label, fontWeight = if (quality.height == current) FontWeight.Bold else FontWeight.Normal) },
+                    supportingContent = if (index == 0) ({ Text("best", color = CastifyColors.TextSecondary) }) else null,
+                    trailingContent = if (quality.height == current) ({ Text("✓", color = CastifyColors.Red, fontWeight = FontWeight.Bold) }) else null,
+                    colors = ListItemDefaults.colors(containerColor = CastifyColors.Surface),
+                    modifier = Modifier.clickable { onPick(quality.height); onDismiss() },
+                )
             }
         }
     }

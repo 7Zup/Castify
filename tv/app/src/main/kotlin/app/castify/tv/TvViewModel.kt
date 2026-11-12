@@ -9,6 +9,7 @@ import app.castify.domain.model.MediaStream
 import app.castify.domain.model.NowPlaying
 import app.castify.domain.model.PlaybackState
 import app.castify.domain.model.PlaybackStats
+import app.castify.domain.model.Quality
 import app.castify.domain.playback.PlayerCommand
 import app.castify.domain.playback.RemoteControl
 import app.castify.domain.subtitles.SubtitleMenu
@@ -57,10 +58,15 @@ data class SubtitleMenuState(val options: List<SubtitleOption>, val focused: Int
  * Netflix-style player controls (▼). The progress bar sits above the button row; no Stop
  * button (user: Back / Home already stop). Room is left for episode buttons later.
  */
-enum class ControlFocus { PROGRESS, BACK_10, PLAY_PAUSE, FORWARD_10, SUBTITLES, EPISODES }
+enum class ControlFocus { PROGRESS, BACK_10, PLAY_PAUSE, FORWARD_10, SUBTITLES, QUALITY, EPISODES }
 
-/** EPISODES only shows for a series. */
-val CONTROL_BUTTONS = listOf(ControlFocus.BACK_10, ControlFocus.PLAY_PAUSE, ControlFocus.FORWARD_10, ControlFocus.SUBTITLES, ControlFocus.EPISODES)
+/** EPISODES only shows for a series. QUALITY sits between CC and Episodes (mockup quality.html). */
+val CONTROL_BUTTONS = listOf(
+    ControlFocus.BACK_10, ControlFocus.PLAY_PAUSE, ControlFocus.FORWARD_10, ControlFocus.SUBTITLES, ControlFocus.QUALITY, ControlFocus.EPISODES,
+)
+
+/** Quality menu (mockup quality.html, T2): the video's qualities, best first. */
+data class QualityMenuState(val options: List<Quality>, val focused: Int)
 
 /** An episode the TV asked the phone for (mockup T5): loading, then failed with Retry / Back. */
 data class EpisodeLoad(val number: EpisodeNumber, val failed: Boolean = false, val focus: ErrorButton = ErrorButton.RETRY)
@@ -83,6 +89,8 @@ data class TvUiState(
     val diagnosticsVisible: Boolean = false,
     /** Null = closed. */
     val subtitleMenu: SubtitleMenuState? = null,
+    /** Null = closed. */
+    val qualityMenu: QualityMenuState? = null,
     /** Time bar shown for [OSD_AFTER_SEEK_MS] after a seek (it is always shown while paused). */
     val timeBarAfterSeek: Boolean = false,
     /** Cumulative ±10 s jumps ("+30 s"), 0 = no bubble. */
@@ -130,7 +138,7 @@ data class TvUiState(
     val nextVisible: Boolean
         get() {
             if (series?.next == null || nextDismissed || episodeLoad != null) return false
-            if (controls != null || episodesPanel != null || subtitleMenu != null || stats.isLive) return false
+            if (controls != null || episodesPanel != null || subtitleMenu != null || qualityMenu != null || stats.isLive) return false
             if (stats.state == PlaybackState.ENDED) return true
             val duration = stats.durationMs ?: return false
             val playing = stats.state == PlaybackState.PLAYING || stats.state == PlaybackState.PAUSED || stats.state == PlaybackState.BUFFERING
@@ -147,7 +155,7 @@ data class TvUiState(
 
     /** Something drawn over the video that Back should remove first. */
     val overlayVisible: Boolean
-        get() = controls != null || subtitleMenu != null || timeBarVisible || diagnosticsVisible || seekBubbleMs != 0L
+        get() = controls != null || subtitleMenu != null || qualityMenu != null || timeBarVisible || diagnosticsVisible || seekBubbleMs != 0L
 }
 
 /** User rule: `Next episode` shows 30 s before the end. */
@@ -253,6 +261,7 @@ class TvViewModel(
                         subtitleMenu = it.subtitleMenu.takeIf { screen == TvScreen.PLAYING },
                         controls = it.controls.takeIf { screen == TvScreen.PLAYING },
                         episodesPanel = it.episodesPanel.takeIf { screen == TvScreen.PLAYING },
+                        qualityMenu = it.qualityMenu.takeIf { screen == TvScreen.PLAYING },
                     )
                 }
                 maybeCountDown()
@@ -346,6 +355,7 @@ class TvViewModel(
             TvScreen.PLAYING -> {
                 _state.value.episodeLoad?.let { return onEpisodeLoadKey(it, key) }
                 _state.value.subtitleMenu?.let { return onMenuKey(it, key).also { touchControls() } }
+                _state.value.qualityMenu?.let { return onQualityKey(it, key).also { touchControls() } }
                 _state.value.episodesPanel?.let { return onPanelKey(it, key).also { touchControls() } }
                 _state.value.controls?.let { return onControlsKey(it, key) }
                 if (_state.value.nextVisible) {
@@ -487,7 +497,7 @@ class TvViewModel(
                 val s = _state.value
                 if (s.controls == null) break
                 val idle = System.currentTimeMillis() - lastControlsKeyAt > CONTROLS_IDLE_MS
-                if (idle && s.subtitleMenu == null && s.episodesPanel == null && s.stats.state != PlaybackState.PAUSED) {
+                if (idle && s.subtitleMenu == null && s.qualityMenu == null && s.episodesPanel == null && s.stats.state != PlaybackState.PAUSED) {
                     hideControls()
                     break
                 }
@@ -532,6 +542,7 @@ class TvViewModel(
                 ControlFocus.BACK_10 -> apply(PlayerCommand.SeekBy(-RemoteControl.SEEK_STEP_MS))
                 ControlFocus.FORWARD_10 -> apply(PlayerCommand.SeekBy(RemoteControl.SEEK_STEP_MS))
                 ControlFocus.SUBTITLES -> openSubtitleMenu()
+                ControlFocus.QUALITY -> openQualityMenu()
                 ControlFocus.EPISODES -> openEpisodesPanel()
             }
         }
@@ -594,6 +605,30 @@ class TvViewModel(
                 _state.update { it.copy(subtitleMenu = null) }
             }
             RemoteKey.BACK -> _state.update { it.copy(subtitleMenu = null) }
+            RemoteKey.LEFT, RemoteKey.RIGHT -> Unit
+        }
+        return true
+    }
+
+    // ---------- Quality (mockup docs/mockups/quality.html, T1–T2) ----------
+
+    private fun openQualityMenu() {
+        val stats = player.stats.value
+        val current = NowPlaying(PlaybackState.PLAYING, qualities = stats.qualities, qualityHeight = stats.qualityHeight).currentQuality
+        val focused = stats.qualities.indexOf(current).coerceAtLeast(0)
+        _state.update { it.copy(qualityMenu = QualityMenuState(stats.qualities, focused)) }
+    }
+
+    /** ▲ ▼ move, OK picks and closes (the video goes on in that quality), Back closes. */
+    private fun onQualityKey(menu: QualityMenuState, key: RemoteKey): Boolean {
+        when (key) {
+            RemoteKey.UP -> _state.update { it.copy(qualityMenu = menu.copy(focused = (menu.focused - 1).coerceAtLeast(0))) }
+            RemoteKey.DOWN -> _state.update { it.copy(qualityMenu = menu.copy(focused = (menu.focused + 1).coerceAtMost((menu.options.size - 1).coerceAtLeast(0)))) }
+            RemoteKey.OK -> {
+                if (menu.options.size > 1) menu.options.getOrNull(menu.focused)?.let { handlePlayerCommand(PlayerCommand.SelectQuality(it.height)) }
+                _state.update { it.copy(qualityMenu = null) }
+            }
+            RemoteKey.BACK -> _state.update { it.copy(qualityMenu = null) }
             RemoteKey.LEFT, RemoteKey.RIGHT -> Unit
         }
         return true

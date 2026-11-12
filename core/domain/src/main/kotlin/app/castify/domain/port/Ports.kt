@@ -99,6 +99,8 @@ interface Player {
     fun seekTo(positionMs: Long)
     /** Null = subtitles off. Text tracks are off when a stream starts. */
     fun selectSubtitle(trackId: String?)
+    /** Locks the video to [height] (a listed quality), without restarting it. */
+    fun selectQuality(height: Int)
     fun stop()
     fun release()
 }

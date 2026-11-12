@@ -73,7 +73,9 @@ _Last updated: 11/12/2026_
 - **TV shows v1** merged (PR #12). **What's new** on `feat/whats-new` (spec
   `docs/features/whats-new.md`): pop-up after an update on phone and TV, every version from
   the phone ⋮ menu and the TV version label, the TV checks for updates each time its home
-  shows (10 min throttle). Phone + HD Chromecast installed; to be released as **v0.6.0**
+  shows (10 min throttle). Plus **quality** while playing (spec `docs/features/quality.md`):
+  phone pill next to CC + sheet, TV HD button + menu, episodes start in their best quality.
+  Phone + HD Chromecast installed; to be released as **v0.6.0**
   with TV shows (the first v0.6.0 run was interrupted before publishing: draft and tag removed).
 - Declined 11/12/2026: TV volume from the phone ("tout ou rien"), findings in ROADMAP.
 - **In-app update + version label** (branch `feat/app-update`, spec

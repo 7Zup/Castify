@@ -301,7 +301,7 @@ class BrowserViewModel(
             // An episode carries its series (episodes and Next on the TV).
             val stream = episodes.withSeries(video.stream.copy(thumbnailUrl = video.thumbnailUrl, subtitles = video.subtitles), address)
             val result = session.send(stream, height, replace)
-            if (result == SendResult.Sent) episodes.onSent(stream, address, height)
+            if (result == SendResult.Sent) episodes.onSent(stream, address)
             _state.update { it.copy(sendingTo = null) }
             when (result) {
                 SendResult.Sent -> {

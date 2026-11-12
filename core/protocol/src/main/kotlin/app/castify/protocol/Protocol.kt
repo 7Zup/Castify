@@ -3,6 +3,7 @@ package app.castify.protocol
 import app.castify.domain.model.MediaStream
 import app.castify.domain.model.NowPlaying
 import app.castify.domain.model.PlaybackState
+import app.castify.domain.model.Quality
 import app.castify.domain.model.StreamType
 import app.castify.domain.playback.PlayerCommand
 import app.castify.domain.series.Episode
@@ -144,7 +145,12 @@ data class StatusResponse(
     val episodeRequest: EpisodeRequestPayload? = null,
     val seriesPageUrl: String? = null,
     val preferredHeight: Int? = null,
+    val qualities: List<QualityInfo> = emptyList(),
+    val qualityHeight: Int? = null,
 )
+
+@Serializable
+data class QualityInfo(val height: Int, val label: String)
 
 /**
  * `POST /control`: one playback command. [action] is one of [ControlRequest.Companion] constants.
@@ -152,7 +158,14 @@ data class StatusResponse(
  * `episodeFailed`: [valueMs] = id of the TV's episode request.
  */
 @Serializable
-data class ControlRequest(val action: String, val valueMs: Long? = null, val trackId: String? = null, val enabled: Boolean? = null) {
+data class ControlRequest(
+    val action: String,
+    val valueMs: Long? = null,
+    val trackId: String? = null,
+    val enabled: Boolean? = null,
+    /** `quality`: video height to play. */
+    val height: Int? = null,
+) {
     companion object {
         const val TOGGLE = "toggle"
         const val SEEK_BY = "seekBy"
@@ -160,6 +173,7 @@ data class ControlRequest(val action: String, val valueMs: Long? = null, val tra
         const val STOP = "stop"
         const val SUBTITLES = "subtitles"
         const val AUTO_NEXT = "autoNext"
+        const val QUALITY = "quality"
         const val EPISODE_FAILED = "episodeFailed"
         /** 409 when another phone claimed the request first. */
         const val CLAIM_EPISODE = "claimEpisode"
@@ -184,6 +198,8 @@ fun NowPlaying.toStatusResponse() = StatusResponse(
     episodeRequest = episodeRequest?.let { EpisodeRequestPayload(it.id, it.number.season, it.number.episode) },
     seriesPageUrl = seriesPageUrl,
     preferredHeight = preferredHeight,
+    qualities = qualities.map { QualityInfo(it.height, it.label) },
+    qualityHeight = qualityHeight,
 )
 
 fun StatusResponse.toNowPlaying() = NowPlaying(
@@ -201,6 +217,8 @@ fun StatusResponse.toNowPlaying() = NowPlaying(
     episodeRequest = episodeRequest?.let { EpisodeRequest(it.id, EpisodeNumber(it.season, it.episode)) },
     seriesPageUrl = seriesPageUrl?.takeIf { it.startsWith("http") },
     preferredHeight = preferredHeight?.takeIf { it > 0 },
+    qualities = qualities.filter { it.height > 0 }.map { Quality(it.height, it.label) },
+    qualityHeight = qualityHeight?.takeIf { it > 0 },
 )
 
 /** Returns null for [PlayerCommand.ToggleDiagnostics] (TV remote only, never sent). */
@@ -211,6 +229,7 @@ fun PlayerCommand.toControlRequest(): ControlRequest? = when (this) {
     PlayerCommand.Stop -> ControlRequest(ControlRequest.STOP)
     is PlayerCommand.SelectSubtitle -> ControlRequest(ControlRequest.SUBTITLES, trackId = trackId)
     is PlayerCommand.SetAutoNext -> ControlRequest(ControlRequest.AUTO_NEXT, enabled = enabled)
+    is PlayerCommand.SelectQuality -> ControlRequest(ControlRequest.QUALITY, height = height)
     is PlayerCommand.EpisodeFailed -> ControlRequest(ControlRequest.EPISODE_FAILED, valueMs = requestId)
     is PlayerCommand.ClaimEpisode -> ControlRequest(ControlRequest.CLAIM_EPISODE, valueMs = requestId)
     PlayerCommand.ToggleDiagnostics, PlayerCommand.OpenSubtitleMenu, PlayerCommand.ShowControls -> null
@@ -224,6 +243,7 @@ fun ControlRequest.toPlayerCommand(): PlayerCommand? = when (action) {
     ControlRequest.STOP -> PlayerCommand.Stop
     ControlRequest.SUBTITLES -> PlayerCommand.SelectSubtitle(trackId?.takeIf { it.isNotBlank() })
     ControlRequest.AUTO_NEXT -> enabled?.let { PlayerCommand.SetAutoNext(it) }
+    ControlRequest.QUALITY -> height?.takeIf { it > 0 }?.let { PlayerCommand.SelectQuality(it) }
     ControlRequest.EPISODE_FAILED -> valueMs?.let { PlayerCommand.EpisodeFailed(it) }
     ControlRequest.CLAIM_EPISODE -> valueMs?.let { PlayerCommand.ClaimEpisode(it) }
     else -> null

@@ -23,7 +23,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * - a video sent from an episode address ([EpisodeAddress]) carries its series ([SeriesInfo]):
  *   the TV then shows its episodes and `Next`;
  * - playing another episode = loading its address out of sight ([EpisodeLoader]), taking the
- *   first watchable video like the user would, and sending it to the TV in the same quality;
+ *   first watchable video like the user would, and sending it to the TV in its best quality
+ *   (user rule; the quality can then be changed while it plays);
  * - a phone that connects while an episode plays gets the series from the TV's status
  *   ([app.castify.domain.model.NowPlaying.seriesPageUrl]): no need to open the site again;
  * - the TV asks for episodes through its status ([app.castify.domain.model.NowPlaying.episodeRequest]):
@@ -43,8 +44,6 @@ class EpisodePlayer(
         val show: Show?,
         /** Playing on the TV. */
         val current: EpisodeNumber,
-        /** Quality the user picked for the first episode, kept for the next ones. */
-        val height: Int?,
         val loading: EpisodeNumber? = null,
         val failed: EpisodeNumber? = null,
         /** The TV's setting, as last seen. */
@@ -85,7 +84,7 @@ class EpisodePlayer(
     }
 
     /** The user sent [stream] to the TV: it is the current episode (or not a series at all). */
-    fun onSent(stream: MediaStream, address: EpisodeAddress?, height: Int?) {
+    fun onSent(stream: MediaStream, address: EpisodeAddress?) {
         val series = stream.series
         if (address == null || series == null) {
             reset()
@@ -96,7 +95,6 @@ class EpisodePlayer(
             address = address,
             show = series.show.takeIf { it.episodes.isNotEmpty() },
             current = series.current,
-            height = height,
             autoNext = _state.value?.autoNext ?: session.state.value.nowPlaying?.autoNext ?: false,
         )
     }
@@ -132,13 +130,14 @@ class EpisodePlayer(
         val episodes = state.show?.episodes.orEmpty()
         val stream = video.stream.copy(thumbnailUrl = video.thumbnailUrl, subtitles = video.subtitles)
             .withSeries(SeriesInfo(state.show?.name ?: "Episode", number, episodes, state.address.withEpisode(number)))
-        return session.send(stream, state.height, replace = true) == TvSession.SendResult.Sent
+        val best = video.details?.qualities?.firstOrNull()?.height
+        return session.send(stream, best, replace = true) == TvSession.SendResult.Sent
     }
 
     private fun onTvState(tv: TvSession.State) {
         if (!tv.connected) return reset()
         val now = tv.nowPlaying ?: return
-        followTv(now.seriesPageUrl, now.preferredHeight, now.autoNext, active = now.isActive || now.state == PlaybackState.ENDED)
+        followTv(now.seriesPageUrl, now.autoNext, active = now.isActive || now.state == PlaybackState.ENDED)
         val current = _state.value ?: return
         if (current.autoNext != now.autoNext) _state.update { it?.copy(autoNext = now.autoNext) }
         now.episodeRequest?.let { request ->
@@ -167,7 +166,7 @@ class EpisodePlayer(
      * What the TV plays decides: an episode this phone did not send (another phone, or this
      * phone before a restart) is adopted from its page; another video ends the series.
      */
-    private fun followTv(pageUrl: String?, height: Int?, autoNext: Boolean, active: Boolean) {
+    private fun followTv(pageUrl: String?, autoNext: Boolean, active: Boolean) {
         val current = _state.value
         if (current?.loading != null) return // our own send is on its way
         if (pageUrl == null) {
@@ -182,7 +181,7 @@ class EpisodePlayer(
             return
         }
         prefetched = null
-        _state.value = State(address = address, show = shows[address.show], current = address.number, height = height, autoNext = autoNext)
+        _state.value = State(address = address, show = shows[address.show], current = address.number, autoNext = autoNext)
         if (shows[address.show] == null) scope.launch {
             val show = showOf(address)
             _state.update { s -> if (s?.address?.show == address.show) s.copy(show = show) else s }

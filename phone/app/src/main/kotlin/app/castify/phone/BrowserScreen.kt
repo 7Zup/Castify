@@ -108,6 +108,7 @@ import app.castify.phone.ui.NowPlayingBar
 import app.castify.phone.ui.ExpandingPlayer
 import app.castify.phone.ui.rememberRemoteExpansion
 import app.castify.phone.ui.SubtitlesSheet
+import app.castify.phone.ui.QualitySheet
 import app.castify.domain.playback.PlayerCommand
 import app.castify.phone.ui.Thumbnail
 import app.castify.phone.ui.formatDuration
@@ -159,6 +160,7 @@ fun BrowserScreen(
     val series by viewModel.series.collectAsStateWithLifecycle()
     var fullscreen by remember { mutableStateOf<Fullscreen?>(null) }
     var subtitlesOpen by remember { mutableStateOf(false) }
+    var qualityOpen by remember { mutableStateOf(false) }
     var overlay by remember { mutableStateOf(Overlay.NONE) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     val requestNotifications = rememberNotificationPermission()
@@ -352,6 +354,7 @@ fun BrowserScreen(
             series = series,
             onEpisode = viewModel::playEpisode,
             onAutoNext = viewModel::setAutoNext,
+            onQuality = { qualityOpen = true },
             onCommand = viewModel::control,
             onRetry = viewModel::retry,
             onSubtitles = { subtitlesOpen = true },
@@ -359,6 +362,12 @@ fun BrowserScreen(
     }
 
     fullscreen?.let { FullscreenPlayer(it) }
+
+    if (qualityOpen && playing) {
+        tv.nowPlaying?.let { now ->
+            QualitySheet(now, onPick = { viewModel.control(PlayerCommand.SelectQuality(it)) }, onDismiss = { qualityOpen = false })
+        }
+    }
 
     if (subtitlesOpen && playing) {
         tv.nowPlaying?.let { now ->

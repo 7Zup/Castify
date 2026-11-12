@@ -49,12 +49,15 @@ class ProtocolTest {
             app.castify.domain.model.PlaybackState.PLAYING,
             autoNext = true,
             episodeRequest = app.castify.domain.series.EpisodeRequest(5, app.castify.domain.series.EpisodeNumber(2, 1)),
+            qualities = listOf(app.castify.domain.model.Quality(1080, "1080p"), app.castify.domain.model.Quality(720, "720p")),
+            qualityHeight = 720,
         )
         assertEquals(now, now.toStatusResponse().toNowPlaying())
 
         listOf(
             app.castify.domain.playback.PlayerCommand.SetAutoNext(true),
             app.castify.domain.playback.PlayerCommand.EpisodeFailed(5),
+            app.castify.domain.playback.PlayerCommand.SelectQuality(720),
         ).forEach { assertEquals(it, it.toControlRequest()!!.toPlayerCommand()) }
     }
 
