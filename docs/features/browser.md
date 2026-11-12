@@ -68,6 +68,12 @@ certificate…) keep the browser's own page. On the home screen while offline, a
 the media notification is the TV's remote, never the phone's player). Back in the app, the
 page resumes but the video stays paused.
 
+**Site players**: a page's own fullscreen button works (`onShowCustomView`: the player covers
+the app, system bars hidden, Back or the player's button leaves). The WebView is laid out
+`MATCH_PARENT`: with Compose's default (wrap content) CSS `vh` was 0 and panels sized in vh
+(a player's Settings / Subtitles menus) opened collapsed, below the screen. Picture-in-picture
+is not available in a WebView (the site's PiP button does nothing).
+
 **Tab history**: each tab keeps its back / forward pages (`WebView.saveState`, files in
 `tab-history/`), across tab switches and app restarts, so Android Back and a site's own ←
 work like in Chrome. Going to the home screen starts the tab over. A page opened directly

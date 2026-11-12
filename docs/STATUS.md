@@ -41,7 +41,8 @@ _Last updated: 11/12/2026_
 
 ## In progress
 
-- **User report of 11/12/2026**, branch `fix/pause-phone-video` (PR open, to be merged by the user).
+- **User report of 11/12/2026**: merged (PR #8), released in **v0.5.3** (11/12/2026); both
+  apps offer it at their next launch.
   Checked by the user on the phone: video paused on cast, pulsing connect icon, now-playing bar
   ⌃ / remote ⌄ with the grow animation, whole-strip highlight. Contents:
   - phone video paused at send start + after success, iframes included (`PageMedia`);
@@ -56,6 +57,9 @@ _Last updated: 11/12/2026_
   - debug builds allow `chrome://inspect` on the WebView.
   Not checked on a device yet: `Not responding` / IP follow, tab history after a restart, TV
   welcome step 3 text (TV not reinstalled).
+- Fix on `fix/site-player-panels` (installed on the phone, to check): a site player's Settings /
+  Subtitles panels opened collapsed (CSS `vh` = 0 because the WebView was wrap-content) and its
+  fullscreen button did nothing (no `onShowCustomView`). PiP stays unavailable in a WebView.
 - Declined 11/12/2026: TV volume from the phone ("tout ou rien"), findings in ROADMAP.
 - **In-app update + version label** (branch `feat/app-update`, spec
   `docs/features/app-update.md`, mockup `docs/mockups/app-update.html`, publishing
@@ -92,7 +96,7 @@ _Last updated: 11/12/2026_
 ## Next step
 
 - **TV shows** (episodes + seasons on phone and TV, `Next` 30 s before the end, `Auto next`):
-  go given by the user on 11/12/2026, after the `fix/pause-phone-video` PR, on its own branch.
+  go given by the user on 11/12/2026; branch `feat/tv-shows` (from `main` after v0.5.3).
   Scope and approach in `docs/ROADMAP.md` ("Next: TV shows"), mockup
   `docs/mockups/episodes.html` (approved).
 
