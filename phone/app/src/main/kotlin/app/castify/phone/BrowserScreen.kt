@@ -76,6 +76,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -187,6 +188,11 @@ fun BrowserScreen(
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
     LaunchedEffect(Unit) { viewModel.pausePageMedia.collect { webView?.let(PageMedia::pause) } }
     LaunchedEffect(playing) { if (!playing) remote.snapClosed() }
+    // Anything that covers the page takes the focus out of the address bar (and hides the keyboard).
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(remote.visible, videoSheetOpen, connectSheetOpen, overlay, subtitlesOpen, qualityOpen) {
+        if (remote.visible || videoSheetOpen || connectSheetOpen || overlay != Overlay.NONE || subtitlesOpen || qualityOpen) focusManager.clearFocus()
+    }
     BackHandler(enabled = state.canGoBack && !remote.visible && overlay == Overlay.NONE && !onHome) { webView?.goBack() }
 
     Scaffold(
@@ -255,7 +261,7 @@ fun BrowserScreen(
                 )
             } else {
                 key(activeTab.id) {
-                    TabWebView(activeTab.id, url, installSniffer, tabHistory, onFullscreen = { fullscreen = it }) { webView = it }
+                    TabWebView(activeTab.id, url, installSniffer, tabHistory, onFullscreen = { fullscreen = it }, onTouched = { focusManager.clearFocus() }) { webView = it }
                 }
                 // Over the WebView (kept underneath so Retry can reload it).
                 state.pageError?.let { error ->
@@ -439,6 +445,7 @@ private fun TabWebView(
     installSniffer: (WebView) -> Unit,
     tabHistory: TabHistory,
     onFullscreen: (Fullscreen?) -> Unit,
+    onTouched: () -> Unit,
     onReady: (WebView?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -479,6 +486,11 @@ private fun TabWebView(
             // `vh` 0, so panels sized in vh (a site player's Settings / Subtitles menus) collapse.
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             installSniffer(this)
+            // A touch on the page leaves the address bar (the WebView does not take Compose's focus).
+            setOnTouchListener { _, event ->
+                if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) onTouched()
+                false
+            }
             // Back / forward history kept across restarts: Android Back and the sites' own back work.
             if (!tabHistory.restore(tabId, this, initialUrl)) loadUrl(initialUrl)
         }
@@ -552,7 +564,13 @@ private fun AddressBar(
 ) {
     val focusManager = LocalFocusManager.current
     var editing by remember { mutableStateOf(false) }
+    // The field keeps its own text and cursor while the user edits: a site that changes its
+    // address meanwhile (players often do) used to overwrite them, so the cursor jumped and its
+    // handle could not be dragged. The page's address comes back once the field is left.
+    var field by remember { mutableStateOf(TextFieldValue(text)) }
+    LaunchedEffect(text, editing) { if (!editing && field.text != text) field = TextFieldValue(text) }
     val submit = {
+        onTextChange(field.text)
         onSubmit()
         focusManager.clearFocus()
     }
@@ -563,8 +581,8 @@ private fun AddressBar(
     ) {
         // Home screen: the search field sits under the logo (HomeScreen), only the icons stay here.
         if (onHome) Spacer(Modifier.weight(1f).height(56.dp)) else OutlinedTextField(
-            value = text,
-            onValueChange = onTextChange,
+            value = field,
+            onValueChange = { field = it; onTextChange(it.text) },
             modifier = Modifier
                 .weight(1f)
                 .onFocusChanged { editing = it.isFocused }
