@@ -118,6 +118,13 @@ import app.castify.phone.ui.HomeScreen
 import app.castify.phone.ui.TabsCountIcon
 import app.castify.phone.ui.TabsScreen
 import android.graphics.Bitmap
+import android.app.Activity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.graphics.Canvas
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.DisposableEffect
@@ -148,6 +155,7 @@ fun BrowserScreen(
     var connectSheetOpen by remember { mutableStateOf(false) }
     var disconnectDialog by remember { mutableStateOf(false) }
     val remote = rememberRemoteExpansion()
+    var fullscreen by remember { mutableStateOf<Fullscreen?>(null) }
     var subtitlesOpen by remember { mutableStateOf(false) }
     var overlay by remember { mutableStateOf(Overlay.NONE) }
     var webView by remember { mutableStateOf<WebView?>(null) }
@@ -242,7 +250,7 @@ fun BrowserScreen(
                 )
             } else {
                 key(activeTab.id) {
-                    TabWebView(activeTab.id, url, installSniffer, tabHistory) { webView = it }
+                    TabWebView(activeTab.id, url, installSniffer, tabHistory, onFullscreen = { fullscreen = it }) { webView = it }
                 }
                 // Over the WebView (kept underneath so Retry can reload it).
                 state.pageError?.let { error ->
@@ -344,6 +352,8 @@ fun BrowserScreen(
         )
     }
 
+    fullscreen?.let { FullscreenPlayer(it) }
+
     if (subtitlesOpen && playing) {
         tv.nowPlaying?.let { now ->
             SubtitlesSheet(
@@ -368,6 +378,36 @@ private fun rememberNotificationPermission(): () -> Unit {
  * One WebView per **active** tab only (user rule: other tabs stay inactive). Recreated when
  * the active tab changes, so each tab has its own back stack; destroyed when it leaves.
  */
+/** A site's player in fullscreen (`WebChromeClient.onShowCustomView`). */
+class Fullscreen(val view: View, val callback: WebChromeClient.CustomViewCallback)
+
+/**
+ * The site's player over the whole app, system bars hidden (swipe from an edge shows them for a
+ * moment). Back, or the player's own exit button, leaves fullscreen.
+ */
+@Composable
+private fun FullscreenPlayer(fullscreen: Fullscreen) {
+    BackHandler { fullscreen.callback.onCustomViewHidden() }
+    val window = (LocalContext.current as? Activity)?.window
+    DisposableEffect(fullscreen, window) {
+        val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
+        controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+    AndroidView(
+        factory = { context ->
+            FrameLayout(context).apply {
+                setBackgroundColor(android.graphics.Color.BLACK)
+                (fullscreen.view.parent as? ViewGroup)?.removeView(fullscreen.view)
+                addView(fullscreen.view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            }
+        },
+        onRelease = { it.removeAllViews() },
+        modifier = Modifier.fillMaxSize(),
+    )
+}
+
 /** Each tab's back / forward history, kept across WebView re-creations and app restarts. */
 interface TabHistory {
     fun save(tabId: String, webView: WebView)
@@ -378,7 +418,14 @@ interface TabHistory {
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun TabWebView(tabId: String, initialUrl: String, installSniffer: (WebView) -> Unit, tabHistory: TabHistory, onReady: (WebView?) -> Unit) {
+private fun TabWebView(
+    tabId: String,
+    initialUrl: String,
+    installSniffer: (WebView) -> Unit,
+    tabHistory: TabHistory,
+    onFullscreen: (Fullscreen?) -> Unit,
+    onReady: (WebView?) -> Unit,
+) {
     val context = LocalContext.current
     val webView = remember(tabId) {
         WebView(context).apply {
@@ -407,7 +454,15 @@ private fun TabWebView(tabId: String, initialUrl: String, installSniffer: (WebVi
                     }
                     return false
                 }
+
+                // A site's own fullscreen button (its player): the player view is shown over the
+                // whole app. Without this the WebView reports fullscreen as unavailable.
+                override fun onShowCustomView(view: View, callback: CustomViewCallback) = onFullscreen(Fullscreen(view, callback))
+                override fun onHideCustomView() = onFullscreen(null)
             }
+            // Match the parent explicitly: Compose's default (wrap content) makes the page's CSS
+            // `vh` 0, so panels sized in vh (a site player's Settings / Subtitles menus) collapse.
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             installSniffer(this)
             // Back / forward history kept across restarts: Android Back and the sites' own back work.
             if (!tabHistory.restore(tabId, this, initialUrl)) loadUrl(initialUrl)
