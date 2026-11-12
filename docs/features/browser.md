@@ -73,7 +73,7 @@ the cursor goes to the end of the address, so the end of a long address shows an
 The field keeps its own text and cursor until it is left (a site changing its address
 meanwhile no longer resets them).
 Opening the remote, a sheet or a screen, or touching the page, leaves the field and hides the
-keyboard.
+keyboard; Android Back hiding the keyboard leaves the field too.
 
 **Site players**: a page's own fullscreen button works (`onShowCustomView`: the player covers
 the app, system bars hidden, Back or the player's button leaves). The WebView is laid out

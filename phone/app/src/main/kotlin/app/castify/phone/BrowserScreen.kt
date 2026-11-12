@@ -77,6 +77,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.ui.text.TextRange
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.semantics.contentDescription
@@ -548,6 +551,7 @@ private fun capturePreview(webView: WebView): Bitmap? = runCatching {
  * Top bar (no ← button: Android back does it): address field with a Reload button (on a
  * page), Cast, tabs counter, ⋮ menu. While typing, a → (Go) button appears; Enter works too.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddressBar(
     text: String,
@@ -571,6 +575,15 @@ private fun AddressBar(
     // handle could not be dragged. The page's address comes back once the field is left.
     var field by remember { mutableStateOf(TextFieldValue(text)) }
     LaunchedEffect(text, editing) { if (!editing && field.text != text) field = TextFieldValue(text) }
+    // Android's Back (▼ while the keyboard shows) hides the keyboard: leave the field too, so
+    // the icons and the page's address come back. Only on the keyboard going away, not before
+    // it has opened.
+    val imeVisible = WindowInsets.isImeVisible
+    var imeWasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible) {
+        if (imeWasVisible && !imeVisible && editing) focusManager.clearFocus()
+        imeWasVisible = imeVisible
+    }
     // Entering the field: the cursor goes to the end, so the end of a long address shows and can
     // be edited straight away (after the tap has placed its own cursor).
     LaunchedEffect(editing) {
