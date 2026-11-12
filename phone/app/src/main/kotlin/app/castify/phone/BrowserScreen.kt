@@ -140,6 +140,7 @@ fun BrowserScreen(
     installSniffer: (WebView) -> Unit,
     savePreview: (String, Bitmap) -> Unit,
     tabHistory: TabHistory,
+    onWhatsNew: () -> Unit,
     loadPreview: (String) -> Bitmap?,
     version: String,
 ) {
@@ -213,6 +214,7 @@ fun BrowserScreen(
                     onNewTab = { rememberCurrentPreview(); viewModel.newTab() },
                     onFavorites = { overlay = Overlay.FAVORITES },
                     onHistory = { overlay = Overlay.HISTORY },
+                    onWhatsNew = onWhatsNew,
                 )
             }
         },

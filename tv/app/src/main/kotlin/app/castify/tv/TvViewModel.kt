@@ -23,6 +23,8 @@ import app.castify.domain.series.EpisodeRequest
 import app.castify.domain.series.SeriesInfo
 import app.castify.domain.status.TvPresence
 import app.castify.domain.update.AppUpdater
+import app.castify.domain.update.ReleaseNote
+import app.castify.domain.update.WhatsNew
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
@@ -41,6 +43,9 @@ enum class TvScreen { WAITING, PLAYING, ERROR }
 
 /** Buttons of the error screen (mockup T1 / T2): Retry restarts where it stopped, Home stops. */
 enum class ErrorButton { RETRY, HOME }
+
+/** "What's new" pop-up buttons (mockup `whats-new.html`, T1): OK first. */
+enum class WhatsNewButton { OK, ALL_VERSIONS }
 
 /** Update dialog buttons (mockup `app-update.html`, T1 / T3): Update or Retry first, then Not now. */
 enum class UpdateButton { PRIMARY, NOT_NOW }
@@ -111,6 +116,13 @@ data class TvUiState(
     val nextDismissed: Boolean = false,
     /** Auto next countdown, seconds left; null = none. */
     val nextCountdown: Int? = null,
+    /** "What's new" pop-up after an update (T1); null = none. */
+    val whatsNew: ReleaseNote? = null,
+    val whatsNewFocus: WhatsNewButton = WhatsNewButton.OK,
+    /** Every version's notes (T2): null = closed, else the first visible version. */
+    val releaseNotesFrom: Int? = null,
+    /** ▼ on the welcome screen focuses the version label; OK opens every version's notes. */
+    val versionFocused: Boolean = false,
 ) {
     val series: SeriesInfo? get() = current?.series
 
@@ -127,7 +139,7 @@ data class TvUiState(
 
     /** Update dialog on screen: welcome screen + something to say (Android's own UI once installing). */
     val updateDialogVisible: Boolean
-        get() = screen == TvScreen.WAITING &&
+        get() = screen == TvScreen.WAITING && whatsNew == null && releaseNotesFrom == null &&
             (update is AppUpdater.State.Available || update is AppUpdater.State.Downloading || update is AppUpdater.State.Failed)
 
     val timeBarVisible: Boolean
@@ -162,12 +174,20 @@ class TvViewModel(
     private val network: NetworkMonitor,
     private val updater: AppUpdater,
     private val settings: TvSettings,
+    private val whatsNew: WhatsNew,
+    /** The welcome screen shows (again): check for an update (throttled by the caller). */
+    private val onHomeShown: () -> Unit,
 ) : ViewModel() {
+
+    /** Every version's notes, newest first (T2). */
+    val releaseNotes: List<ReleaseNote> = whatsNew.all
 
     /** Subtitle to turn back on once the retried stream lists its tracks. */
     private var pendingSubtitleId: String? = null
 
-    private val _state = MutableStateFlow(TvUiState(versionLabel = updater.currentVersion.label, autoNext = settings.autoNext))
+    private val _state = MutableStateFlow(
+        TvUiState(versionLabel = updater.currentVersion.label, autoNext = settings.autoNext, whatsNew = whatsNew.popup()),
+    )
     val state: StateFlow<TvUiState> = _state.asStateFlow()
 
     init {
@@ -241,6 +261,14 @@ class TvViewModel(
     }
 
     init {
+        // Back on the welcome screen (video ended or stopped): look for an update.
+        viewModelScope.launch {
+            var previous = _state.value.screen
+            _state.collect { s ->
+                if (s.screen == TvScreen.WAITING && previous != TvScreen.WAITING) onHomeShown()
+                previous = s.screen
+            }
+        }
         // Welcome screen state: re-evaluated every second (a phone stops calling = Standby).
         val ticker = flow { while (currentCoroutineContext().isActive) { emit(Unit); delay(1_000) } }
         viewModelScope.launch {
@@ -289,6 +317,8 @@ class TvViewModel(
 
     fun start(deviceName: String) {
         _state.update { it.copy(deviceName = deviceName) }
+        // The app comes back to the front (it rarely really closes on a Chromecast).
+        if (_state.value.screen == TvScreen.WAITING) onHomeShown()
         receiver.start(deviceName) {
             val current = _state.value
             if (current.screen == TvScreen.PLAYING) NowPlaying.from(player.stats.value, current.current, current.autoNext, current.episodeRequest)
@@ -305,7 +335,7 @@ class TvViewModel(
     /** Returns true when the key was consumed. Unhandled keys (Back while waiting) go to the system. */
     fun onKey(key: RemoteKey): Boolean {
         return when (_state.value.screen) {
-            TvScreen.WAITING -> if (_state.value.updateDialogVisible) onUpdateKey(key) else false
+            TvScreen.WAITING -> onWelcomeKey(key)
             TvScreen.ERROR -> when (key) {
                 RemoteKey.LEFT -> { _state.update { it.copy(errorFocus = ErrorButton.RETRY) }; true }
                 RemoteKey.RIGHT -> { _state.update { it.copy(errorFocus = ErrorButton.HOME) }; true }
@@ -359,6 +389,50 @@ class TvViewModel(
             RemoteKey.UP, RemoteKey.DOWN -> Unit
         }
         return true
+    }
+
+    /**
+     * Welcome screen, in order: every version's notes (▲ ▼ scroll, OK / Back close), the
+     * "What's new" pop-up (◀ ▶, OK; Back = OK), the update dialog, else ▼ / ▲ move the focus
+     * to / from the version label and OK on it opens every version's notes.
+     */
+    private fun onWelcomeKey(key: RemoteKey): Boolean {
+        val s = _state.value
+        s.releaseNotesFrom?.let { from ->
+            when (key) {
+                RemoteKey.UP -> _state.update { it.copy(releaseNotesFrom = (from - 1).coerceAtLeast(0)) }
+                RemoteKey.DOWN -> _state.update { it.copy(releaseNotesFrom = (from + 1).coerceAtMost((releaseNotes.size - 1).coerceAtLeast(0))) }
+                RemoteKey.OK, RemoteKey.BACK -> _state.update { it.copy(releaseNotesFrom = null) }
+                RemoteKey.LEFT, RemoteKey.RIGHT -> Unit
+            }
+            return true
+        }
+        if (s.whatsNew != null) {
+            when (key) {
+                RemoteKey.LEFT -> _state.update { it.copy(whatsNewFocus = WhatsNewButton.OK) }
+                RemoteKey.RIGHT -> _state.update { it.copy(whatsNewFocus = WhatsNewButton.ALL_VERSIONS) }
+                RemoteKey.OK -> closeWhatsNew(openAll = s.whatsNewFocus == WhatsNewButton.ALL_VERSIONS)
+                RemoteKey.BACK -> closeWhatsNew(openAll = false)
+                RemoteKey.UP, RemoteKey.DOWN -> Unit
+            }
+            return true
+        }
+        if (s.updateDialogVisible) return onUpdateKey(key)
+        return when (key) {
+            RemoteKey.DOWN -> { _state.update { it.copy(versionFocused = true) }; true }
+            RemoteKey.UP -> { _state.update { it.copy(versionFocused = false) }; true }
+            RemoteKey.OK -> {
+                if (s.versionFocused) _state.update { it.copy(releaseNotesFrom = 0) }
+                s.versionFocused
+            }
+            RemoteKey.BACK -> if (s.versionFocused) { _state.update { it.copy(versionFocused = false) }; true } else false
+            RemoteKey.LEFT, RemoteKey.RIGHT -> false
+        }
+    }
+
+    private fun closeWhatsNew(openAll: Boolean) {
+        whatsNew.markSeen()
+        _state.update { it.copy(whatsNew = null, releaseNotesFrom = if (openAll) 0 else null) }
     }
 
     private var stopConfirmJob: Job? = null
@@ -673,6 +747,8 @@ class TvViewModel(
                     container.network,
                     container.updater,
                     container.settings,
+                    container.whatsNew,
+                    container::checkForUpdate,
                 )
             }
         }

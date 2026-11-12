@@ -16,8 +16,9 @@ class TvActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // A launch (not a restore): silent update check, shown on the welcome screen only.
-        if (savedInstanceState == null) container.checkForUpdate()
+        // Silent update check, shown on the welcome screen only. Also each time the welcome
+        // screen shows again (TvViewModel), throttled by the container.
+        container.checkForUpdate()
         setContent { TvScreenContent(viewModel, container.videoSurface) }
     }
 

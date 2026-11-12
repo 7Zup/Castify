@@ -10,6 +10,10 @@ import app.castify.domain.usecase.PlayStream
 import app.castify.tv.data.ExoPlayerAdapter
 import app.castify.tv.data.LanCastReceiver
 import app.castify.tv.data.PrefsTvSettings
+import app.castify.domain.update.UpdateCheckThrottle
+import app.castify.domain.update.WhatsNew
+import app.castify.update.PrefsSeenVersionStore
+import app.castify.update.wasUpdated
 import app.castify.tv.data.AndroidNetworkMonitor
 import app.castify.update.ApkInstaller
 import app.castify.update.GitHubReleaseSource
@@ -50,8 +54,17 @@ class TvContainer(app: Application) {
         appScope,
     )
 
-    /** Each launch: silent check (a leftover APK from a previous update is removed first). */
+    /** "What's new" after an update, and every version's notes (mockup docs/mockups/whats-new.html). */
+    val whatsNew = WhatsNew(updater.currentVersion, PrefsSeenVersionStore(app), wasUpdated(app))
+
+    private val updateThrottle = UpdateCheckThrottle()
+
+    /**
+     * Silent check each time the home screen shows, at most every 10 min (a Chromecast rarely
+     * really closes the app). A leftover APK from a previous update is removed first.
+     */
     fun checkForUpdate() {
+        if (!updateThrottle.due()) return
         if (updater.state.value == AppUpdater.State.Idle) apkInstaller.cleanUp()
         updater.check()
     }

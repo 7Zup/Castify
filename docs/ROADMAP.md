@@ -54,10 +54,7 @@ Answers already given, to reuse at kickoff:
   audio track listing or selection anywhere (TV, phone, protocol; the HLS parser ignores
   `#EXT-X-MEDIA TYPE=AUDIO`). To scope with the user when they ask.
 
-- **Next (user, 11/12/2026, after TV shows)**: the TV checks for updates each time its home
-  screen shows (not only at launch: on Chromecast the app rarely really closes); a short,
-  friendly changelog pop-up with `OK` after an update; maybe every changelog in one place.
-  Mockups first.
+- **What's new + update check on the TV home**: built 11/12/2026 (`docs/features/whats-new.md`).
 
 - **In-app update, later** (scoped 11/06/2026, v1 built): the phone pushes the update to the
   TV; release notes in the dialog; smaller APKs (minified release build, the TV debug APK is

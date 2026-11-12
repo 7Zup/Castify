@@ -70,6 +70,11 @@ _Last updated: 11/12/2026_
   (Next, Auto next, episode change all checked). Then: TV episode pictures (Coil added to the
   TV app) and Auto next row moved up (was cut at the bottom): built, not installed yet (TV
   playing). The 4K Chromecast is not updated.
+- **TV shows v1** merged (PR #12). **What's new** on `feat/whats-new` (spec
+  `docs/features/whats-new.md`): pop-up after an update on phone and TV, every version from
+  the phone ⋮ menu and the TV version label, the TV checks for updates each time its home
+  shows (10 min throttle). Phone + HD Chromecast installed; to be released as **v0.6.0**
+  with TV shows (the first v0.6.0 run was interrupted before publishing: draft and tag removed).
 - Declined 11/12/2026: TV volume from the phone ("tout ou rien"), findings in ROADMAP.
 - **In-app update + version label** (branch `feat/app-update`, spec
   `docs/features/app-update.md`, mockup `docs/mockups/app-update.html`, publishing
