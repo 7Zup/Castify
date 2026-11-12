@@ -132,8 +132,9 @@ class PlayStream(private val player: Player, private val policy: BufferPolicy = 
 }
 
 /**
- * Applies a player command. Returns false for TV-only commands ([PlayerCommand.isTvOnly]):
- * the TV screen handles those itself (diagnostics overlay, subtitle menu).
+ * Applies a player command. Returns false for the commands the TV screen handles itself:
+ * TV-only ones ([PlayerCommand.isTvOnly]: diagnostics, subtitle menu) and the series ones
+ * (Auto next, an episode the phone could not find).
  */
 class HandlePlayerCommand(private val player: Player) {
     operator fun invoke(command: PlayerCommand): Boolean {
@@ -143,7 +144,8 @@ class HandlePlayerCommand(private val player: Player) {
             is PlayerCommand.SeekTo -> player.seekTo(command.positionMs)
             PlayerCommand.Stop -> player.stop()
             is PlayerCommand.SelectSubtitle -> player.selectSubtitle(command.trackId)
-            PlayerCommand.ToggleDiagnostics, PlayerCommand.OpenSubtitleMenu, PlayerCommand.ShowControls -> return false
+            PlayerCommand.ToggleDiagnostics, PlayerCommand.OpenSubtitleMenu, PlayerCommand.ShowControls,
+            is PlayerCommand.SetAutoNext, is PlayerCommand.EpisodeFailed, is PlayerCommand.ClaimEpisode -> return false
         }
         return true
     }

@@ -9,7 +9,10 @@ import app.castify.domain.browser.Favorites
 import app.castify.phone.data.PrefsFavoriteStore
 import app.castify.phone.data.PrefsHistoryStore
 import app.castify.phone.data.PrefsTabStore
+import app.castify.domain.series.EpisodePlayer
 import app.castify.phone.data.TabHistoryStore
+import app.castify.phone.data.TvMazeShowCatalog
+import app.castify.phone.data.WebViewEpisodeLoader
 import app.castify.phone.data.TabPreviewStore
 import android.util.Log
 import android.webkit.WebView
@@ -80,6 +83,12 @@ class AppContainer(app: Application) {
     private val tvClient = HttpTvClient(wifi::open)
     val observeNearbyTvs = ObserveNearbyTvs(observeTvDevices, NsdCastDeviceScanner(nsd), probe = { tvClient.status(it).isSuccess })
     val tvSession = TvSession(tvClient, appScope)
+
+    /** The app is on screen (set by [MainActivity]): the hidden episode loader needs to know. */
+    @Volatile var appVisible = false
+
+    // TV shows: episode lists from TVmaze, other episodes loaded out of sight (docs/features/episodes.md).
+    val episodePlayer = EpisodePlayer(TvMazeShowCatalog(), WebViewEpisodeLoader(app) { appVisible }, tvSession, appScope)
     val history = BrowsingHistory(PrefsHistoryStore(app))
     val openPage = OpenPage()
     val favorites = Favorites(PrefsFavoriteStore(app))
@@ -180,6 +189,7 @@ class AppContainer(app: Application) {
             override fun onPageStarted(url: String) {
                 if (logMedia) Log.d("CastifyNet", "page $url")
                 videoCatalog.reset()
+                videoCatalog.onPageAddress(url)
                 viewModel.onPageLoading()
             }
             override fun onPageChanged(url: String, canGoBack: Boolean, canGoForward: Boolean) =

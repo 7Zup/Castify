@@ -11,6 +11,7 @@ import app.castify.domain.model.VideoElement
 import app.castify.domain.subtitles.SubtitleClassifier
 import app.castify.domain.subtitles.SubtitleSource
 import kotlinx.coroutines.CoroutineScope
+import app.castify.domain.series.EpisodeAddress
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,7 +55,18 @@ class VideoCatalog(
     private val _videos = MutableStateFlow<List<DetectedVideo>>(emptyList())
     val videos: StateFlow<List<DetectedVideo>> = _videos.asStateFlow()
 
+    private val _episodeAddress = MutableStateFlow<EpisodeAddress?>(null)
+    /**
+     * The episode this page plays ([EpisodeAddress]): the page's own address, else the first
+     * embedded player address seen (players in frames). Null = not a series episode.
+     */
+    val episodeAddress: StateFlow<EpisodeAddress?> = _episodeAddress.asStateFlow()
+
+    /** The page's address (call right after [reset]). */
+    fun onPageAddress(url: String) { _episodeAddress.value = EpisodeAddress.parse(url) }
+
     fun onRequest(request: ObservedRequest) {
+        if (_episodeAddress.value == null) EpisodeAddress.parse(request.url)?.let { _episodeAddress.compareAndSet(null, it) }
         SubtitleClassifier.classify(request.url, request.mimeType)?.let { onSubtitle(it, fromTrackElement = false); return }
         val stream = classifier.classify(request) ?: return
         if (stream.likelyAd) return
@@ -108,7 +120,10 @@ class VideoCatalog(
     }
 
     /** Called when the user navigates to a new page. */
-    fun reset() = mutate { Page(generation = it.generation + 1) }
+    fun reset() {
+        _episodeAddress.value = null
+        mutate { Page(generation = it.generation + 1) }
+    }
 
     private fun mutate(change: (Page) -> Page) = synchronized(lock) { publish(change(page)) }
 

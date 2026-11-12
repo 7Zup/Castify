@@ -1,5 +1,7 @@
 package app.castify.domain.model
 
+import app.castify.domain.series.EpisodeRequest
+import app.castify.domain.series.SeriesInfo
 import app.castify.domain.subtitles.SubtitleSource
 import app.castify.domain.subtitles.SubtitleTrack
 
@@ -32,6 +34,8 @@ data class MediaStream(
     val thumbnailUrl: String? = null,
     /** Subtitle files seen on the page, side-loaded by the TV (off by default). */
     val subtitles: List<SubtitleSource> = emptyList(),
+    /** Set when the video is an episode of a known series (episodes, Next on the TV). */
+    val series: SeriesInfo? = null,
 )
 
 /**
@@ -51,6 +55,17 @@ data class NowPlaying(
     /** Text tracks available on the TV; [selectedSubtitleId] null = subtitles off. */
     val subtitles: List<SubtitleTrack> = emptyList(),
     val selectedSubtitleId: String? = null,
+    /** TV setting shared by every phone ([app.castify.domain.port.TvSettings.autoNext]). */
+    val autoNext: Boolean = false,
+    /** Another episode the TV asked for; the first phone to claim it answers. */
+    val episodeRequest: EpisodeRequest? = null,
+    /**
+     * Page of the episode playing (null = not a series): a phone that connects while it plays
+     * finds the series from it, without going back to the site.
+     */
+    val seriesPageUrl: String? = null,
+    /** Quality the playing video was sent in (null = player default), reused for other episodes. */
+    val preferredHeight: Int? = null,
 ) {
     /** A video is loaded on the TV (playing, paused or loading). */
     val isActive: Boolean
@@ -60,9 +75,18 @@ data class NowPlaying(
         val IDLE = NowPlaying(PlaybackState.IDLE)
 
         /** Built on the TV from the player stats and the stream being played. */
-        fun from(stats: PlaybackStats, stream: MediaStream?): NowPlaying =
-            if (stream == null) IDLE
+        fun from(
+            stats: PlaybackStats,
+            stream: MediaStream?,
+            autoNext: Boolean = false,
+            episodeRequest: EpisodeRequest? = null,
+        ): NowPlaying =
+            if (stream == null) IDLE.copy(autoNext = autoNext, episodeRequest = episodeRequest)
             else NowPlaying(
+                autoNext = autoNext,
+                episodeRequest = episodeRequest,
+                seriesPageUrl = stream.series?.addressUrl,
+                preferredHeight = stream.preferredHeight,
                 state = stats.state,
                 positionMs = stats.positionMs,
                 durationMs = stats.durationMs,

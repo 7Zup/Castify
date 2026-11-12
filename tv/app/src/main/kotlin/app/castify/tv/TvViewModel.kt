@@ -17,6 +17,10 @@ import app.castify.domain.playback.RemoteKey
 import app.castify.domain.port.CastReceiver
 import app.castify.domain.port.Player
 import app.castify.domain.port.NetworkMonitor
+import app.castify.domain.port.TvSettings
+import app.castify.domain.series.EpisodeNumber
+import app.castify.domain.series.EpisodeRequest
+import app.castify.domain.series.SeriesInfo
 import app.castify.domain.status.TvPresence
 import app.castify.domain.update.AppUpdater
 import kotlinx.coroutines.flow.combine
@@ -48,9 +52,21 @@ data class SubtitleMenuState(val options: List<SubtitleOption>, val focused: Int
  * Netflix-style player controls (▼). The progress bar sits above the button row; no Stop
  * button (user: Back / Home already stop). Room is left for episode buttons later.
  */
-enum class ControlFocus { PROGRESS, BACK_10, PLAY_PAUSE, FORWARD_10, SUBTITLES }
+enum class ControlFocus { PROGRESS, BACK_10, PLAY_PAUSE, FORWARD_10, SUBTITLES, EPISODES }
 
-val CONTROL_BUTTONS = listOf(ControlFocus.BACK_10, ControlFocus.PLAY_PAUSE, ControlFocus.FORWARD_10, ControlFocus.SUBTITLES)
+/** EPISODES only shows for a series. */
+val CONTROL_BUTTONS = listOf(ControlFocus.BACK_10, ControlFocus.PLAY_PAUSE, ControlFocus.FORWARD_10, ControlFocus.SUBTITLES, ControlFocus.EPISODES)
+
+/** An episode the TV asked the phone for (mockup T5): loading, then failed with Retry / Back. */
+data class EpisodeLoad(val number: EpisodeNumber, val failed: Boolean = false, val focus: ErrorButton = ErrorButton.RETRY)
+
+/**
+ * Rows of the Episodes panel (mockup T2), top to bottom: Auto next sits right of the series
+ * title (user). The panel opens on the playing episode.
+ */
+enum class EpisodesRow { AUTO_NEXT, SEASONS, EPISODES }
+
+data class EpisodesPanelState(val season: Int, val row: EpisodesRow, val episodeIndex: Int)
 
 data class ControlsState(val focus: ControlFocus = ControlFocus.PLAY_PAUSE)
 
@@ -84,7 +100,31 @@ data class TvUiState(
     val updateFocus: UpdateButton = UpdateButton.PRIMARY,
     /** `v0.5.0`, bottom right of the welcome screen. */
     val versionLabel: String = "",
+    /** TV setting shared by every phone: the next episode starts by itself at the end. */
+    val autoNext: Boolean = false,
+    /** Asked to the phones through the status, until a new video arrives. */
+    val episodeRequest: EpisodeRequest? = null,
+    val episodeLoad: EpisodeLoad? = null,
+    /** Null = closed. */
+    val episodesPanel: EpisodesPanelState? = null,
+    /** Back hid `Next` for this episode. */
+    val nextDismissed: Boolean = false,
+    /** Auto next countdown, seconds left; null = none. */
+    val nextCountdown: Int? = null,
 ) {
+    val series: SeriesInfo? get() = current?.series
+
+    /** `Next episode` (mockup T3 / T4): the last 30 s, or the end, when the next episode is known. */
+    val nextVisible: Boolean
+        get() {
+            if (series?.next == null || nextDismissed || episodeLoad != null) return false
+            if (controls != null || episodesPanel != null || subtitleMenu != null || stats.isLive) return false
+            if (stats.state == PlaybackState.ENDED) return true
+            val duration = stats.durationMs ?: return false
+            val playing = stats.state == PlaybackState.PLAYING || stats.state == PlaybackState.PAUSED || stats.state == PlaybackState.BUFFERING
+            return playing && duration - stats.positionMs in 0..NEXT_BEFORE_END_MS
+        }
+
     /** Update dialog on screen: welcome screen + something to say (Android's own UI once installing). */
     val updateDialogVisible: Boolean
         get() = screen == TvScreen.WAITING &&
@@ -97,6 +137,13 @@ data class TvUiState(
     val overlayVisible: Boolean
         get() = controls != null || subtitleMenu != null || timeBarVisible || diagnosticsVisible || seekBubbleMs != 0L
 }
+
+/** User rule: `Next episode` shows 30 s before the end. */
+const val NEXT_BEFORE_END_MS = 30_000L
+/** Auto next waits this long at the end, Back cancels (mockup T4). */
+const val AUTO_NEXT_COUNTDOWN_S = 10
+/** No new video from a phone in this time = the episode failed. */
+const val EPISODE_REQUEST_TIMEOUT_MS = 60_000L
 
 /** User choice: the time bar stays 3 s after the last ◀ / ▶. */
 const val OSD_AFTER_SEEK_MS = 3_000L
@@ -114,12 +161,13 @@ class TvViewModel(
     private val handlePlayerCommand: HandlePlayerCommand,
     private val network: NetworkMonitor,
     private val updater: AppUpdater,
+    private val settings: TvSettings,
 ) : ViewModel() {
 
     /** Subtitle to turn back on once the retried stream lists its tracks. */
     private var pendingSubtitleId: String? = null
 
-    private val _state = MutableStateFlow(TvUiState(versionLabel = updater.currentVersion.label))
+    private val _state = MutableStateFlow(TvUiState(versionLabel = updater.currentVersion.label, autoNext = settings.autoNext))
     val state: StateFlow<TvUiState> = _state.asStateFlow()
 
     init {
@@ -128,6 +176,8 @@ class TvViewModel(
                 // A video wins over the update prompt (the install would stop it): next launch asks again.
                 updater.dismiss()
                 pendingSubtitleId = null
+                countdownJob?.cancel()
+                requestTimeoutJob?.cancel()
                 _state.update {
                     it.copy(
                         screen = TvScreen.PLAYING,
@@ -140,6 +190,11 @@ class TvViewModel(
                         controls = null,
                         pausedBarDismissed = false,
                         stopArmed = false,
+                        episodeRequest = null,
+                        episodeLoad = null,
+                        episodesPanel = null,
+                        nextDismissed = false,
+                        nextCountdown = null,
                     )
                 }
                 playStream(stream)
@@ -148,7 +203,11 @@ class TvViewModel(
         // Commands from phones go through the same path as the TV remote (time bar included).
         viewModelScope.launch {
             receiver.commands.collect { command ->
-                if (_state.value.screen == TvScreen.PLAYING) apply(command)
+                when (command) {
+                    is PlayerCommand.SetAutoNext -> setAutoNext(command.enabled)
+                    is PlayerCommand.EpisodeFailed -> onEpisodeFailed(command.requestId)
+                    else -> if (_state.value.screen == TvScreen.PLAYING) apply(command)
+                }
             }
         }
         viewModelScope.launch {
@@ -173,8 +232,10 @@ class TvViewModel(
                         stopArmed = it.stopArmed && screen == TvScreen.PLAYING,
                         subtitleMenu = it.subtitleMenu.takeIf { screen == TvScreen.PLAYING },
                         controls = it.controls.takeIf { screen == TvScreen.PLAYING },
+                        episodesPanel = it.episodesPanel.takeIf { screen == TvScreen.PLAYING },
                     )
                 }
+                maybeCountDown()
             }
         }
     }
@@ -230,8 +291,8 @@ class TvViewModel(
         _state.update { it.copy(deviceName = deviceName) }
         receiver.start(deviceName) {
             val current = _state.value
-            if (current.screen == TvScreen.PLAYING) NowPlaying.from(player.stats.value, current.current)
-            else NowPlaying.IDLE
+            if (current.screen == TvScreen.PLAYING) NowPlaying.from(player.stats.value, current.current, current.autoNext, current.episodeRequest)
+            else NowPlaying.IDLE.copy(autoNext = current.autoNext)
         }
     }
 
@@ -253,8 +314,17 @@ class TvViewModel(
                 else -> true
             }
             TvScreen.PLAYING -> {
+                _state.value.episodeLoad?.let { return onEpisodeLoadKey(it, key) }
                 _state.value.subtitleMenu?.let { return onMenuKey(it, key).also { touchControls() } }
+                _state.value.episodesPanel?.let { return onPanelKey(it, key).also { touchControls() } }
                 _state.value.controls?.let { return onControlsKey(it, key) }
+                if (_state.value.nextVisible) {
+                    when (key) {
+                        RemoteKey.OK -> { _state.value.series?.next?.let { requestEpisode(it.number) }; return true }
+                        RemoteKey.BACK -> { dismissNext(); return true }
+                        else -> Unit
+                    }
+                }
                 if (key == RemoteKey.BACK) return onBackWithoutControls()
                 when (val command = RemoteControl.commandFor(key) ?: return false) {
                     PlayerCommand.ToggleDiagnostics -> _state.update { it.copy(diagnosticsVisible = !it.diagnosticsVisible) }
@@ -343,7 +413,7 @@ class TvViewModel(
                 val s = _state.value
                 if (s.controls == null) break
                 val idle = System.currentTimeMillis() - lastControlsKeyAt > CONTROLS_IDLE_MS
-                if (idle && s.subtitleMenu == null && s.stats.state != PlaybackState.PAUSED) {
+                if (idle && s.subtitleMenu == null && s.episodesPanel == null && s.stats.state != PlaybackState.PAUSED) {
                     hideControls()
                     break
                 }
@@ -375,7 +445,10 @@ class TvViewModel(
                 if (controls.focus == ControlFocus.PROGRESS) {
                     apply(PlayerCommand.SeekBy(if (forward) RemoteControl.SEEK_STEP_MS else -RemoteControl.SEEK_STEP_MS))
                 } else {
-                    val buttons = CONTROL_BUTTONS.filter { seekable || (it != ControlFocus.BACK_10 && it != ControlFocus.FORWARD_10) }
+                    val hasSeries = _state.value.series != null
+                    val buttons = CONTROL_BUTTONS.filter {
+                        (seekable || (it != ControlFocus.BACK_10 && it != ControlFocus.FORWARD_10)) && (hasSeries || it != ControlFocus.EPISODES)
+                    }
                     val index = buttons.indexOf(controls.focus).coerceAtLeast(0)
                     focus(buttons[(index + if (forward) 1 else -1).coerceIn(0, buttons.lastIndex)])
                 }
@@ -385,6 +458,7 @@ class TvViewModel(
                 ControlFocus.BACK_10 -> apply(PlayerCommand.SeekBy(-RemoteControl.SEEK_STEP_MS))
                 ControlFocus.FORWARD_10 -> apply(PlayerCommand.SeekBy(RemoteControl.SEEK_STEP_MS))
                 ControlFocus.SUBTITLES -> openSubtitleMenu()
+                ControlFocus.EPISODES -> openEpisodesPanel()
             }
         }
         return true
@@ -451,6 +525,138 @@ class TvViewModel(
         return true
     }
 
+    // ---------- TV shows (mockup docs/mockups/episodes.html, T1–T5) ----------
+
+    private var countdownJob: Job? = null
+    private var requestTimeoutJob: Job? = null
+
+    /** Asks the phones for [number] (through the status); the phone that sent the series answers. */
+    private fun requestEpisode(number: EpisodeNumber) {
+        val id = System.currentTimeMillis()
+        countdownJob?.cancel()
+        _state.update {
+            it.copy(
+                episodeRequest = EpisodeRequest(id, number),
+                episodeLoad = EpisodeLoad(number),
+                episodesPanel = null,
+                controls = null,
+                nextCountdown = null,
+            )
+        }
+        requestTimeoutJob?.cancel()
+        requestTimeoutJob = viewModelScope.launch {
+            delay(EPISODE_REQUEST_TIMEOUT_MS)
+            onEpisodeFailed(id)
+        }
+    }
+
+    private fun onEpisodeFailed(requestId: Long) {
+        _state.update {
+            if (it.episodeRequest?.id != requestId) it
+            else it.copy(episodeRequest = null, episodeLoad = it.episodeLoad?.copy(failed = true, focus = ErrorButton.RETRY))
+        }
+    }
+
+    /** Loading: Back cancels. Failed: ◀ ▶ Retry / Back, OK presses, Back closes. */
+    private fun onEpisodeLoadKey(load: EpisodeLoad, key: RemoteKey): Boolean {
+        fun close() {
+            requestTimeoutJob?.cancel()
+            _state.update { it.copy(episodeRequest = null, episodeLoad = null) }
+        }
+        if (!load.failed) {
+            if (key == RemoteKey.BACK) close()
+            return true
+        }
+        when (key) {
+            RemoteKey.LEFT -> _state.update { it.copy(episodeLoad = load.copy(focus = ErrorButton.RETRY)) }
+            RemoteKey.RIGHT -> _state.update { it.copy(episodeLoad = load.copy(focus = ErrorButton.HOME)) }
+            RemoteKey.OK -> if (load.focus == ErrorButton.RETRY) requestEpisode(load.number) else close()
+            RemoteKey.BACK -> close()
+            RemoteKey.UP, RemoteKey.DOWN -> Unit
+        }
+        return true
+    }
+
+    private fun setAutoNext(enabled: Boolean) {
+        settings.autoNext = enabled
+        if (!enabled) countdownJob?.cancel()
+        _state.update { it.copy(autoNext = enabled, nextCountdown = if (enabled) it.nextCountdown else null) }
+    }
+
+    /** Back on `Next`: hidden for this episode, and no Auto next. */
+    private fun dismissNext() {
+        countdownJob?.cancel()
+        _state.update { it.copy(nextDismissed = true, nextCountdown = null) }
+    }
+
+    /** Auto next: at the end, [AUTO_NEXT_COUNTDOWN_S] s on `Next`, then the next episode. */
+    private fun maybeCountDown() {
+        val s = _state.value
+        val next = s.series?.next
+        val due = s.autoNext && next != null && s.stats.state == PlaybackState.ENDED && s.nextVisible
+        if (!due) {
+            if (s.nextCountdown != null && s.stats.state != PlaybackState.ENDED) {
+                countdownJob?.cancel()
+                _state.update { it.copy(nextCountdown = null) }
+            }
+            return
+        }
+        if (countdownJob?.isActive == true) return
+        countdownJob = viewModelScope.launch {
+            for (left in AUTO_NEXT_COUNTDOWN_S downTo 1) {
+                _state.update { it.copy(nextCountdown = left) }
+                delay(1_000)
+            }
+            requestEpisode(next!!.number)
+        }
+    }
+
+    private fun openEpisodesPanel() {
+        val series = _state.value.series ?: return
+        val season = series.current.season
+        val index = series.show.episodesOf(season).indexOfFirst { it.number == series.current }.coerceAtLeast(0)
+        val row = if (series.episodes.isEmpty()) EpisodesRow.AUTO_NEXT else EpisodesRow.EPISODES
+        _state.update { it.copy(episodesPanel = EpisodesPanelState(season, row, index)) }
+    }
+
+    /**
+     * Episodes panel: ▲ ▼ between seasons, episodes and Auto next; ◀ ▶ inside a row; OK picks
+     * the season / plays the episode / ticks Auto next; Back closes. Other keys are swallowed.
+     */
+    private fun onPanelKey(panel: EpisodesPanelState, key: RemoteKey): Boolean {
+        val series = _state.value.series ?: return true.also { _state.update { it.copy(episodesPanel = null) } }
+        val show = series.show
+        val seasons = show.seasons
+        val episodes = show.episodesOf(panel.season)
+        val rows = if (series.episodes.isEmpty()) listOf(EpisodesRow.AUTO_NEXT) else EpisodesRow.entries
+        fun set(p: EpisodesPanelState) = _state.update { it.copy(episodesPanel = p) }
+        when (key) {
+            RemoteKey.UP -> set(panel.copy(row = rows[(rows.indexOf(panel.row) - 1).coerceAtLeast(0)]))
+            RemoteKey.DOWN -> set(panel.copy(row = rows[(rows.indexOf(panel.row) + 1).coerceAtMost(rows.lastIndex)]))
+            RemoteKey.LEFT, RemoteKey.RIGHT -> {
+                val step = if (key == RemoteKey.RIGHT) 1 else -1
+                when (panel.row) {
+                    EpisodesRow.SEASONS -> {
+                        val i = (seasons.indexOf(panel.season) + step).coerceIn(0, seasons.lastIndex)
+                        set(panel.copy(season = seasons[i], episodeIndex = 0))
+                    }
+                    EpisodesRow.EPISODES -> set(panel.copy(episodeIndex = (panel.episodeIndex + step).coerceIn(0, (episodes.size - 1).coerceAtLeast(0))))
+                    EpisodesRow.AUTO_NEXT -> Unit
+                }
+            }
+            RemoteKey.OK -> when (panel.row) {
+                EpisodesRow.SEASONS -> set(panel.copy(row = EpisodesRow.EPISODES))
+                EpisodesRow.EPISODES -> episodes.getOrNull(panel.episodeIndex)?.let { episode ->
+                    if (episode.number == series.current) _state.update { it.copy(episodesPanel = null) }
+                    else requestEpisode(episode.number)
+                }
+                EpisodesRow.AUTO_NEXT -> setAutoNext(!_state.value.autoNext)
+            }
+            RemoteKey.BACK -> _state.update { it.copy(episodesPanel = null) }
+        }
+        return true
+    }
+
     override fun onCleared() {
         receiver.stop()
         player.release()
@@ -459,7 +665,15 @@ class TvViewModel(
     companion object {
         fun factory(container: TvContainer): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                TvViewModel(container.receiver, container.player, container.playStream, container.handlePlayerCommand, container.network, container.updater)
+                TvViewModel(
+                    container.receiver,
+                    container.player,
+                    container.playStream,
+                    container.handlePlayerCommand,
+                    container.network,
+                    container.updater,
+                    container.settings,
+                )
             }
         }
     }

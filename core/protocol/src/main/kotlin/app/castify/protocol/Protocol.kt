@@ -5,6 +5,11 @@ import app.castify.domain.model.NowPlaying
 import app.castify.domain.model.PlaybackState
 import app.castify.domain.model.StreamType
 import app.castify.domain.playback.PlayerCommand
+import app.castify.domain.series.Episode
+import app.castify.domain.series.EpisodeNumber
+import app.castify.domain.series.EpisodeRequest
+import app.castify.domain.series.SeriesInfo
+import app.castify.domain.series.Show
 import app.castify.domain.subtitles.SubtitleFormat
 import app.castify.domain.subtitles.SubtitleSource
 import app.castify.domain.subtitles.SubtitleTrack
@@ -94,7 +99,25 @@ data class PlayRequest(
     val thumbnailUrl: String? = null,
     /** Subtitle files of the page; the TV side-loads them, off by default. */
     val subtitles: List<SubtitleFile> = emptyList(),
+    /** Set when the video is an episode of a known series. */
+    val series: SeriesPayload? = null,
 )
+
+@Serializable
+data class SeriesPayload(
+    val show: String,
+    val season: Int,
+    val episode: Int,
+    val episodes: List<EpisodePayload> = emptyList(),
+    /** Episode address, reported back in the status for phones that connect later. */
+    val address: String? = null,
+)
+
+@Serializable
+data class EpisodePayload(val season: Int, val episode: Int, val title: String? = null, val runtimeMin: Int? = null, val imageUrl: String? = null)
+
+@Serializable
+data class EpisodeRequestPayload(val id: Long, val season: Int, val episode: Int)
 
 @Serializable
 data class SubtitleFile(val url: String, val format: String, val language: String? = null, val label: String? = null)
@@ -116,20 +139,30 @@ data class StatusResponse(
     val subtitles: List<SubtitleTrackInfo> = emptyList(),
     /** Null = subtitles off. */
     val selectedSubtitleId: String? = null,
+    val autoNext: Boolean = false,
+    /** Another episode the TV asked for (answered by the first phone to claim it). */
+    val episodeRequest: EpisodeRequestPayload? = null,
+    val seriesPageUrl: String? = null,
+    val preferredHeight: Int? = null,
 )
 
 /**
  * `POST /control`: one playback command. [action] is one of [ControlRequest.Companion] constants.
- * `subtitles`: [trackId] = track to show, null = subtitles off.
+ * `subtitles`: [trackId] = track to show, null = subtitles off. `autoNext`: [enabled].
+ * `episodeFailed`: [valueMs] = id of the TV's episode request.
  */
 @Serializable
-data class ControlRequest(val action: String, val valueMs: Long? = null, val trackId: String? = null) {
+data class ControlRequest(val action: String, val valueMs: Long? = null, val trackId: String? = null, val enabled: Boolean? = null) {
     companion object {
         const val TOGGLE = "toggle"
         const val SEEK_BY = "seekBy"
         const val SEEK_TO = "seekTo"
         const val STOP = "stop"
         const val SUBTITLES = "subtitles"
+        const val AUTO_NEXT = "autoNext"
+        const val EPISODE_FAILED = "episodeFailed"
+        /** 409 when another phone claimed the request first. */
+        const val CLAIM_EPISODE = "claimEpisode"
     }
 }
 
@@ -147,6 +180,10 @@ fun NowPlaying.toStatusResponse() = StatusResponse(
     bufferedPositionMs = bufferedPositionMs,
     subtitles = subtitles.map { SubtitleTrackInfo(it.id, it.language, it.label) },
     selectedSubtitleId = selectedSubtitleId,
+    autoNext = autoNext,
+    episodeRequest = episodeRequest?.let { EpisodeRequestPayload(it.id, it.number.season, it.number.episode) },
+    seriesPageUrl = seriesPageUrl,
+    preferredHeight = preferredHeight,
 )
 
 fun StatusResponse.toNowPlaying() = NowPlaying(
@@ -160,6 +197,10 @@ fun StatusResponse.toNowPlaying() = NowPlaying(
     bufferedPositionMs = bufferedPositionMs,
     subtitles = subtitles.map { SubtitleTrack(it.id, it.language, it.label) },
     selectedSubtitleId = selectedSubtitleId,
+    autoNext = autoNext,
+    episodeRequest = episodeRequest?.let { EpisodeRequest(it.id, EpisodeNumber(it.season, it.episode)) },
+    seriesPageUrl = seriesPageUrl?.takeIf { it.startsWith("http") },
+    preferredHeight = preferredHeight?.takeIf { it > 0 },
 )
 
 /** Returns null for [PlayerCommand.ToggleDiagnostics] (TV remote only, never sent). */
@@ -169,6 +210,9 @@ fun PlayerCommand.toControlRequest(): ControlRequest? = when (this) {
     is PlayerCommand.SeekTo -> ControlRequest(ControlRequest.SEEK_TO, positionMs)
     PlayerCommand.Stop -> ControlRequest(ControlRequest.STOP)
     is PlayerCommand.SelectSubtitle -> ControlRequest(ControlRequest.SUBTITLES, trackId = trackId)
+    is PlayerCommand.SetAutoNext -> ControlRequest(ControlRequest.AUTO_NEXT, enabled = enabled)
+    is PlayerCommand.EpisodeFailed -> ControlRequest(ControlRequest.EPISODE_FAILED, valueMs = requestId)
+    is PlayerCommand.ClaimEpisode -> ControlRequest(ControlRequest.CLAIM_EPISODE, valueMs = requestId)
     PlayerCommand.ToggleDiagnostics, PlayerCommand.OpenSubtitleMenu, PlayerCommand.ShowControls -> null
 }
 
@@ -179,6 +223,9 @@ fun ControlRequest.toPlayerCommand(): PlayerCommand? = when (action) {
     ControlRequest.SEEK_TO -> valueMs?.takeIf { it >= 0 }?.let { PlayerCommand.SeekTo(it) }
     ControlRequest.STOP -> PlayerCommand.Stop
     ControlRequest.SUBTITLES -> PlayerCommand.SelectSubtitle(trackId?.takeIf { it.isNotBlank() })
+    ControlRequest.AUTO_NEXT -> enabled?.let { PlayerCommand.SetAutoNext(it) }
+    ControlRequest.EPISODE_FAILED -> valueMs?.let { PlayerCommand.EpisodeFailed(it) }
+    ControlRequest.CLAIM_EPISODE -> valueMs?.let { PlayerCommand.ClaimEpisode(it) }
     else -> null
 }
 
@@ -191,6 +238,15 @@ fun MediaStream.toPlayRequest() = PlayRequest(
     preferredHeight = preferredHeight,
     thumbnailUrl = thumbnailUrl,
     subtitles = subtitles.map { SubtitleFile(it.url, it.format.name, it.language, it.label) },
+    series = series?.let { info ->
+        SeriesPayload(
+            show = info.showName,
+            season = info.current.season,
+            episode = info.current.episode,
+            episodes = info.episodes.map { EpisodePayload(it.number.season, it.number.episode, it.title, it.runtimeMin, it.imageUrl) },
+            address = info.addressUrl,
+        )
+    },
 )
 
 /** Returns null when the request is not playable (unknown type, non-HTTP URL). */
@@ -210,6 +266,17 @@ fun PlayRequest.toMediaStream(): MediaStream? {
             val format = SubtitleFormat.entries.firstOrNull { it.name == file.format } ?: return@mapNotNull null
             if (!file.url.startsWith("http")) return@mapNotNull null
             SubtitleSource(file.url, format, file.language, file.label)
+        },
+        series = series?.takeIf { it.season > 0 && it.episode > 0 }?.let { payload ->
+            SeriesInfo(
+                showName = payload.show,
+                current = EpisodeNumber(payload.season, payload.episode),
+                episodes = Show.of(
+                    payload.show,
+                    payload.episodes.map { Episode(EpisodeNumber(it.season, it.episode), it.title, it.runtimeMin, it.imageUrl?.takeIf { u -> u.startsWith("http") }) },
+                ).episodes,
+                addressUrl = payload.address?.takeIf { it.startsWith("http") },
+            )
         },
     )
 }

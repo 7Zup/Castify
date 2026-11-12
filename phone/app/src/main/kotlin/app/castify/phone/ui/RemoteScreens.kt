@@ -26,7 +26,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -89,6 +90,14 @@ import app.castify.domain.model.PlaybackState
 import app.castify.domain.playback.PlayerCommand
 import app.castify.domain.playback.RemoteControl
 import app.castify.domain.session.TvSession
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.HorizontalDivider
+import app.castify.domain.series.Episode
+import app.castify.domain.series.EpisodeNumber
+import app.castify.domain.series.EpisodePlayer
 import kotlinx.coroutines.delay
 
 /**
@@ -236,9 +245,12 @@ private fun BarContent(
 fun ExpandingPlayer(
     tv: TvSession.State,
     expansion: RemoteExpansion,
+    series: EpisodePlayer.State?,
     onCommand: (PlayerCommand) -> Unit,
     onRetry: () -> Unit,
     onSubtitles: () -> Unit,
+    onEpisode: (EpisodeNumber) -> Unit,
+    onAutoNext: (Boolean) -> Unit,
 ) {
     val onClose: () -> Unit = expansion::close
     BackHandler(onBack = onClose)
@@ -267,7 +279,7 @@ fun ExpandingPlayer(
         // 2. The thumbnail. Loaded once at its full size (sharp when big) and scaled down to the
         // bar slot. Its distance to the top edge shrinks from the bar's to the remote's, so it
         // always stays inside the growing surface.
-        val to = remoteThumb ?: with(density) {
+        val to = remoteThumb?.takeIf { it.width > 0f && it.height > 0f } ?: with(density) {
             val width = fullWidth - 2 * REMOTE_PADDING.toPx()
             Rect(Offset(REMOTE_PADDING.toPx(), 120.dp.toPx()), Size(width, width * 9f / 16f))
         }
@@ -301,7 +313,7 @@ fun ExpandingPlayer(
                 .graphicsLayer { alpha = ((expansion.value - 0.5f) / 0.5f).coerceIn(0f, 1f) }
                 .drawWithContent { clipRect(top = top()) { this@drawWithContent.drawContent() } },
         ) {
-            RemoteContent(tv, now, onClose, onCommand, onRetry, onSubtitles) { remoteThumb = it }
+            RemoteContent(tv, now, series, onClose, onCommand, onRetry, onSubtitles, onEpisode, onAutoNext) { remoteThumb = it }
         }
 
         // 4. The bar's text and buttons, riding the top edge, gone in the first third of the move.
@@ -329,15 +341,20 @@ fun ExpandingPlayer(
 private fun RemoteContent(
     tv: TvSession.State,
     now: NowPlaying,
+    series: EpisodePlayer.State?,
     onClose: () -> Unit,
     onCommand: (PlayerCommand) -> Unit,
     onRetry: () -> Unit,
     onSubtitles: () -> Unit,
+    onEpisode: (EpisodeNumber) -> Unit,
+    onAutoNext: (Boolean) -> Unit,
     onThumbnailPlaced: (Rect) -> Unit,
 ) {
     Column(
         Modifier
             .fillMaxSize()
+            // The episode list makes the remote taller than the screen.
+            .verticalScroll(rememberScrollState())
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = REMOTE_PADDING),
@@ -386,7 +403,9 @@ private fun RemoteContent(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
-                .onGloballyPositioned { onThumbnailPlaced(it.boundsInRoot()) },
+                // Unclipped bounds: once the list scrolls the slot leaves the screen, clipped bounds
+                // would be 0 wide (a NaN scale that crashed the app).
+                .onGloballyPositioned { onThumbnailPlaced(Rect(it.positionInRoot(), it.size.toSize())) },
             contentAlignment = Alignment.Center,
         ) {
             if (now.state == PlaybackState.BUFFERING && tv.reachable) CircularProgressIndicator(color = CastifyColors.Red)
@@ -422,7 +441,110 @@ private fun RemoteContent(
                 Icon(Icons.Filled.Forward10, contentDescription = "Forward 10 seconds", modifier = Modifier.size(40.dp))
             }
         }
+        series?.let { EpisodesSection(it, onEpisode, onAutoNext) }
+        Spacer(Modifier.height(24.dp))
     }
+}
+
+/**
+ * Episodes of the series on the TV (mockup `docs/mockups/episodes.html`, P1–P3): the season
+ * picker, the season's episodes (the playing one marked; tap = play it on the TV), Auto next.
+ */
+@Composable
+private fun EpisodesSection(series: EpisodePlayer.State, onEpisode: (EpisodeNumber) -> Unit, onAutoNext: (Boolean) -> Unit) {
+    val show = series.show
+    var season by remember(series.current.season) { mutableStateOf(series.current.season) }
+    var choosingSeason by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(top = 24.dp)) {
+        HorizontalDivider(color = CastifyColors.SurfaceRaised)
+        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (choosingSeason) "Choose a season" else "Episodes",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            if (show != null && show.seasons.size > 1 && !choosingSeason) {
+                OutlinedButton(onClick = { choosingSeason = true }) { Text("Season $season ▾") }
+            }
+        }
+        when {
+            show == null -> Text("Episode list unavailable", color = CastifyColors.TextSecondary, modifier = Modifier.padding(vertical = 8.dp))
+            choosingSeason -> show.seasons.forEach { s ->
+                val count = show.episodesOf(s).size
+                ListRow(playing = s == series.current.season, onClick = { season = s; choosingSeason = false }) {
+                    Text("Season $s", fontWeight = FontWeight.Bold)
+                    Text("$count episode${if (count > 1) "s" else ""}", style = MaterialTheme.typography.bodySmall, color = CastifyColors.TextSecondary)
+                }
+            }
+            else -> show.episodesOf(season).forEach { episode -> EpisodeRow(episode, series, onEpisode) }
+        }
+        Row(
+            Modifier.fillMaxWidth().clickable { onAutoNext(!series.autoNext) }.padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = series.autoNext,
+                onCheckedChange = onAutoNext,
+                colors = CheckboxDefaults.colors(checkedColor = CastifyColors.Red, checkmarkColor = CastifyColors.TextPrimary),
+            )
+            Text("Auto next", fontWeight = FontWeight.Bold)
+            Text(
+                "plays the next one at the end",
+                style = MaterialTheme.typography.bodySmall,
+                color = CastifyColors.TextSecondary,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        if (show != null) Text("Episode info: TVmaze", style = MaterialTheme.typography.labelSmall, color = CastifyColors.Disabled)
+    }
+}
+
+@Composable
+private fun EpisodeRow(episode: Episode, series: EpisodePlayer.State, onEpisode: (EpisodeNumber) -> Unit) {
+    val number = episode.number
+    val playing = number == series.current
+    ListRow(playing = playing, onClick = { if (!playing) onEpisode(number) }) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Thumbnail(episode.imageUrl, emptyMap(), Modifier.width(96.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(4.dp)))
+            Column(Modifier.weight(1f)) {
+                if (playing) Text("PLAYING", style = MaterialTheme.typography.labelSmall, color = CastifyColors.Red, fontWeight = FontWeight.Bold)
+                Text(
+                    listOfNotNull(number.episode.toString(), episode.title).joinToString(" · "),
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                )
+                when (number) {
+                    series.loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(color = CastifyColors.Red, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
+                        Text("Finding the video…", style = MaterialTheme.typography.bodySmall, color = CastifyColors.TextSecondary)
+                    }
+                    series.failed -> Text(
+                        "Couldn't find the video of this episode",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CastifyColors.TextSecondary,
+                    )
+                    else -> episode.runtimeMin?.let {
+                        Text("$it min", style = MaterialTheme.typography.bodySmall, color = CastifyColors.TextSecondary)
+                    }
+                }
+            }
+            if (number == series.failed) TextButton(onClick = { onEpisode(number) }) { Text("Retry") }
+        }
+    }
+}
+
+/** A tappable line of the episodes section; the playing one sits on a lighter surface. */
+@Composable
+private fun ListRow(playing: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (playing) CastifyColors.Surface else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+    ) { content() }
 }
 
 private val BAR_PADDING = 12.dp

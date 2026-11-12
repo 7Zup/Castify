@@ -20,6 +20,12 @@ sealed interface PlayerCommand {
     data object OpenSubtitleMenu : PlayerCommand
     /** TV remote only: shows the player controls (Netflix style). Never sent by phones. */
     data object ShowControls : PlayerCommand
+    /** Turns the TV's Auto next setting on or off (phone checkbox). */
+    data class SetAutoNext(val enabled: Boolean) : PlayerCommand
+    /** The phone could not find the video of the episode the TV asked for ([requestId]). */
+    data class EpisodeFailed(val requestId: Long) : PlayerCommand
+    /** A phone takes the TV's episode request [requestId]; only the first one gets it. */
+    data class ClaimEpisode(val requestId: Long) : PlayerCommand
 
     /** Commands that only change the TV screen, not the player. */
     val isTvOnly: Boolean get() = this == ToggleDiagnostics || this == OpenSubtitleMenu || this == ShowControls

@@ -131,6 +131,12 @@ class TvSession(
         }
     }
 
+    /** Takes the TV's episode request [requestId]; false when another phone took it first. */
+    suspend fun claimEpisode(requestId: Long): Boolean {
+        val device = _state.value.device ?: return false
+        return client.control(device, PlayerCommand.ClaimEpisode(requestId)).isSuccess
+    }
+
     /** Poll now (e.g. "Retry" after the TV was unreachable). */
     fun refresh() {
         val device = _state.value.device ?: return

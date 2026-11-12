@@ -8,6 +8,7 @@ import app.castify.domain.model.MediaStream
 import app.castify.domain.model.NowPlaying
 import app.castify.domain.playback.PlayerCommand
 import app.castify.domain.port.CastReceiver
+import app.castify.domain.series.EpisodeClaims
 import app.castify.protocol.CastifyProtocol
 import app.castify.protocol.ControlRequest
 import app.castify.protocol.ErrorResponse
@@ -72,6 +73,7 @@ class LanCastReceiver(context: Context) : CastReceiver {
     override val lastPhoneCallAtMs: StateFlow<Long?> = _lastPhoneCall.asStateFlow()
     private fun phoneCalled() { _lastPhoneCall.value = System.currentTimeMillis() }
 
+    private val claims = EpisodeClaims()
     private var server: EmbeddedServer<*, *>? = null
     private var registration: NsdManager.RegistrationListener? = null
     @Volatile private var status: () -> NowPlaying = { NowPlaying.IDLE }
@@ -125,6 +127,8 @@ class LanCastReceiver(context: Context) : CastReceiver {
             }.getOrNull()
             if (command == null) {
                 call.respondText(errorJson("Invalid control request"), ContentType.Application.Json, HttpStatusCode.BadRequest)
+            } else if (command is PlayerCommand.ClaimEpisode && !claims.claim(command.requestId)) {
+                call.respondText(errorJson("Another phone took it"), ContentType.Application.Json, HttpStatusCode.Conflict)
             } else {
                 _commands.emit(command)
                 call.respondText("{}", ContentType.Application.Json)

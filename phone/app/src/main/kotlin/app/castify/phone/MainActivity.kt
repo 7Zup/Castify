@@ -41,6 +41,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        (application as CastifyApp).container.appVisible = true
+    }
+
+    override fun onStop() {
+        (application as CastifyApp).container.appVisible = false
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         // Back from Android's "Install unknown apps" screen: the update goes on by itself.

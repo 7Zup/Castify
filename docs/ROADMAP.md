@@ -13,7 +13,9 @@
 | **Universal mode** (after v0.2) | Phone relay + Google Cast + DLNA adapters, receiver kind in the TV picker (ADR 0003). Already done: the `_googlecast._tcp` scan (`NsdCastDeviceScanner`), shown as `App not launched` today. Data rule (user, 11/06/2026): here the phone buffers, only once the video is sent, only over the Wi-Fi, capped like the TV (`DataRules.maxRateBps`: 3× the quality, min 15 Mbps) | Works at a friend's place without the Castify TV app |
 | v4+ | Advanced ad blocking, favorites, queue, phone relay fallback | Comfort |
 
-## Next: TV shows (episodes + next episode), "hyper important" (user, 11/05/2026)
+## TV shows (episodes + next episode), "hyper important" (user, 11/05/2026)
+
+v1 built on `feat/tv-shows` (11/12/2026), spec `docs/features/episodes.md`.
 
 Comes right after the TV player controls: episode / season buttons join the controls row.
 Answers already given, to reuse at kickoff:
@@ -51,6 +53,11 @@ Answers already given, to reuse at kickoff:
   tête"): a 1080p stream played in Russian and could not be switched. Today there is no
   audio track listing or selection anywhere (TV, phone, protocol; the HLS parser ignores
   `#EXT-X-MEDIA TYPE=AUDIO`). To scope with the user when they ask.
+
+- **Next (user, 11/12/2026, after TV shows)**: the TV checks for updates each time its home
+  screen shows (not only at launch: on Chromecast the app rarely really closes); a short,
+  friendly changelog pop-up with `OK` after an update; maybe every changelog in one place.
+  Mockups first.
 
 - **In-app update, later** (scoped 11/06/2026, v1 built): the phone pushes the update to the
   TV; release notes in the dialog; smaller APKs (minified release build, the TV debug APK is
