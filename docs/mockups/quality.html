@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – change the video quality while it plays</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; } h2 { font-size:17px; margin:36px 0 4px; }
+  .intro { color:var(--text2); margin:0 0 10px; font-size:14px; max-width:1050px; line-height:1.45; }
+  .row { display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; }
+  .label { font-size:13px; font-weight:700; margin:16px 0 4px; } .label span { color:var(--red); }
+  .sub { color:var(--text2); font-size:12px; margin:0 0 10px; max-width:300px; min-height:48px; }
+  .phone { width:280px; height:560px; background:var(--bg); border-radius:26px; border:6px solid #2b2b2b; overflow:hidden; display:flex; flex-direction:column; position:relative; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; }
+  .chev { text-align:center; color:var(--text2); font-size:16px; padding-top:6px; }
+  .rtop { display:flex; align-items:center; gap:10px; padding:6px 18px; font-weight:800; font-size:16px; }
+  .rtop .sp { flex:1; }
+  .pill { font-size:9.5px; font-weight:800; border:1.5px solid var(--text); border-radius:3px; padding:2px 4px; }
+  .pill.hl { border-color:var(--red); color:#fff; background:#3a1114; }
+  .thumb { margin:10px 18px 0; aspect-ratio:16/9; border-radius:4px; background:linear-gradient(135deg,#3a2a2a,#1d1d2d); }
+  .prog { margin:18px 18px 0; height:3px; background:#444; border-radius:2px; position:relative; } .prog b { position:absolute; left:0; top:0; bottom:0; width:42%; background:var(--red); }
+  .times { display:flex; justify-content:space-between; font-size:10px; color:var(--text2); margin:6px 18px 0; }
+  .ctrl { display:flex; justify-content:space-evenly; align-items:center; padding:16px 0; font-size:17px; } .ctrl .pp { width:46px; height:46px; border-radius:50%; background:#fff; color:#000; display:flex; align-items:center; justify-content:center; }
+  .sheet { position:absolute; left:0; right:0; bottom:0; background:var(--surface); border-radius:16px 16px 0 0; padding:10px 0 18px; }
+  .grab { width:32px; height:4px; border-radius:2px; background:var(--dis); margin:0 auto 10px; }
+  .sheet h3 { margin:0 20px 8px; font-size:16px; }
+  .opt { display:flex; align-items:center; padding:11px 20px; font-size:13px; }
+  .opt .t { flex:1; } .opt small { color:var(--text2); margin-left:8px; font-size:10.5px; }
+  .opt .ck { color:var(--red); font-weight:900; }
+  .dim { position:absolute; inset:0; background:rgba(0,0,0,.45); }
+  .tv { width:480px; height:270px; background:#000; border:6px solid #2b2b2b; border-radius:6px; position:relative; overflow:hidden; }
+  .scene { position:absolute; inset:0; background:linear-gradient(120deg,#1d2430,#2a1c1c 60%,#111); }
+  .panel { position:absolute; left:16px; right:16px; bottom:12px; background:rgba(11,11,11,.88); border-radius:6px; padding:10px 14px 4px; }
+  .ttl { font-size:10.5px; font-weight:800; margin-bottom:6px; }
+  .tbar { height:3px; background:#444; position:relative; margin-bottom:8px; } .tbar b { position:absolute; left:0; top:0; bottom:0; width:42%; background:var(--red); }
+  .btns { display:flex; gap:12px; align-items:flex-start; font-size:13px; }
+  .b { width:26px; display:flex; flex-direction:column; align-items:center; }
+  .b i { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-style:normal; color:#ddd; font-size:11px; font-weight:800; }
+  .b.f i { background:#fff; color:#000; transform:scale(1.1); }
+  .b em { font-size:7.5px; font-style:normal; height:14px; white-space:nowrap; margin-top:2px; }
+  .menu { position:absolute; right:14px; top:14px; width:150px; background:rgba(0,0,0,.85); border-radius:8px; padding:8px 0; }
+  .menu h4 { margin:2px 12px 6px; font-size:12px; }
+  .menu div { margin:1px 8px; padding:5px 8px; font-size:10.5px; color:var(--text2); display:flex; border-radius:5px; }
+  .menu div .t { flex:1; } .menu div.f { border:1.5px solid #fff; color:#fff; font-weight:800; }
+  .menu .ck { color:var(--red); font-weight:900; }
+</style>
+</head>
+<body>
+<h1>Change the video quality while it plays</h1>
+<p class="intro">Same pattern as subtitles. The qualities are the ones the site offers for this video (best first). Picking one switches without restarting the video. A video with one quality only: the button is greyed out and the list says "Only one quality for this video". When an episode changes (phone, TV, Next, Auto next), the best quality is picked by default.</p>
+
+<h2>Phone · full remote</h2>
+<div class="row">
+  <div>
+    <p class="label"><span>P1</span> · Quality button</p>
+    <p class="sub">An <b>HD</b> pill next to CC, top right of the remote (not in the mini bar: it is already full).</p>
+    <div class="phone">
+      <div class="status"><span>21:04</span><span>▾ ▮</span></div>
+      <div class="chev">⌄</div>
+      <div class="rtop">MyCast<span class="sp"></span><span class="pill hl">1080p</span><span class="pill">CC</span></div>
+      <div class="thumb"></div>
+      <div class="prog"><b></b></div>
+      <div class="times"><span>12:04</span><span>30:09</span></div>
+      <div class="ctrl"><span>↺10</span><span class="pp">❚❚</span><span>■</span><span>10↻</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>P2</span> · Quality sheet</p>
+    <p class="sub">Tap the pill: the qualities of this video, the current one checked. Tap one = the TV switches; the sheet closes.</p>
+    <div class="phone">
+      <div class="status"><span>21:04</span><span>▾ ▮</span></div>
+      <div class="chev">⌄</div>
+      <div class="rtop">MyCast<span class="sp"></span><span class="pill hl">1080p</span><span class="pill">CC</span></div>
+      <div class="thumb"></div>
+      <div class="dim"></div>
+      <div class="sheet"><div class="grab"></div><h3>Quality</h3>
+        <div class="opt"><span class="t">1080p<small>best</small></span><span class="ck">✓</span></div>
+        <div class="opt"><span class="t">720p</span></div>
+        <div class="opt"><span class="t">480p</span></div>
+        <div class="opt"><span class="t">360p</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>TV · player controls</h2>
+<div class="row">
+  <div>
+    <p class="label"><span>T1</span> · Quality button</p>
+    <p class="sub">After CC, before Episodes. Its label shows the current quality.</p>
+    <div class="tv"><div class="scene"></div>
+      <div class="panel">
+        <div class="ttl">Example Show · S5 E2 · Second Round</div>
+        <div class="tbar"><b></b></div>
+        <div class="btns"><span class="b"><i>↺</i><em></em></span><span class="b"><i>❚❚</i><em></em></span><span class="b"><i>↻</i><em></em></span><span style="flex:1"></span><span class="b"><i>CC</i><em></em></span><span class="b f"><i>HD</i><em>Quality · 1080p</em></span><span class="b"><i>☰</i><em></em></span></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>T2</span> · Quality menu</p>
+    <p class="sub">OK on the button: same menu as subtitles, on the right. ▲ ▼ move, OK picks and closes, Back closes.</p>
+    <div class="tv"><div class="scene"></div>
+      <div class="menu"><h4>Quality</h4>
+        <div><span class="t">1080p · best</span><span class="ck">✓</span></div>
+        <div class="f"><span class="t">720p</span></div>
+        <div><span class="t">480p</span></div>
+        <div><span class="t">360p</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

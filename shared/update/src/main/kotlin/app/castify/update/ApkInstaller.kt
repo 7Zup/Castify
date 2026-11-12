@@ -179,3 +179,24 @@ class PrefsAcceptedUpdateStore(context: Context) : AcceptedUpdateStore {
         const val KEY = "accepted_version"
     }
 }
+
+/** The last version whose "What's new" was seen, in the app's preferences. */
+class PrefsSeenVersionStore(context: Context) : app.castify.domain.update.SeenVersionStore {
+    private val prefs = context.getSharedPreferences("update", Context.MODE_PRIVATE)
+
+    override var lastSeen: AppVersion?
+        get() = AppVersion.parse(prefs.getString(KEY, null))
+        set(value) {
+            prefs.edit().apply { if (value == null) remove(KEY) else putString(KEY, value.toString()) }.apply()
+        }
+
+    private companion object {
+        const val KEY = "whats_new_seen"
+    }
+}
+
+/** True when the installed app replaced an older one (an update), false for a first install. */
+fun wasUpdated(context: Context): Boolean {
+    val info = context.packageManager.getPackageInfo(context.packageName, 0)
+    return info.lastUpdateTime > info.firstInstallTime
+}

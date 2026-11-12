@@ -24,6 +24,8 @@ sealed interface PlayerCommand {
     data class SetAutoNext(val enabled: Boolean) : PlayerCommand
     /** The phone could not find the video of the episode the TV asked for ([requestId]). */
     data class EpisodeFailed(val requestId: Long) : PlayerCommand
+    /** Plays the video in the quality of [height] (one of [app.castify.domain.model.NowPlaying.qualities]). */
+    data class SelectQuality(val height: Int) : PlayerCommand
     /** A phone takes the TV's episode request [requestId]; only the first one gets it. */
     data class ClaimEpisode(val requestId: Long) : PlayerCommand
 

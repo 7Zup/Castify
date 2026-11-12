@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Castify – updates: check on the TV home, What's new</title>
+<style>
+  :root { --bg:#141414; --surface:#1F1F1F; --raised:#2A2A2A; --red:#E50914; --text:#FFFFFF; --text2:#B3B3B3; --dis:#6D6D6D; --green:#46D369; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#0b0b0b; color:var(--text); font-family:Roboto, system-ui, -apple-system, sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; } h2 { font-size:17px; margin:40px 0 4px; }
+  .intro { color:var(--text2); margin:0 0 10px; font-size:14px; max-width:1050px; line-height:1.45; }
+  .row { display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; }
+  .label { font-size:13px; font-weight:700; margin:16px 0 4px; } .label span { color:var(--red); }
+  .sub { color:var(--text2); font-size:12px; margin:0 0 10px; max-width:300px; min-height:48px; }
+  /* phone */
+  .phone { width:280px; height:560px; background:var(--bg); border-radius:26px; border:6px solid #2b2b2b; overflow:hidden; display:flex; flex-direction:column; position:relative; }
+  .status { height:22px; font-size:10px; color:var(--text2); display:flex; justify-content:space-between; padding:5px 16px 0; flex:none; }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 10px 8px; flex:none; }
+  .field { flex:1; height:36px; border:1px solid #555; border-radius:20px; display:flex; align-items:center; padding:0 12px; font-size:11.5px; }
+  .ico { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:16px; }
+  .page { flex:1; margin:0 10px; border-radius:6px; background:repeating-linear-gradient(180deg,#1b1b1b 0 14px,#161616 14px 28px); }
+  .scrim { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:18px; }
+  .dialog { background:var(--raised); border-radius:16px; padding:20px 18px 14px; width:100%; }
+  .badge { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.4px; color:var(--red); }
+  .dtitle { font-size:18px; font-weight:900; margin:4px 0 12px; }
+  .item { display:flex; gap:10px; margin:0 0 11px; font-size:12.5px; line-height:1.35; }
+  .item i { flex:none; width:22px; height:22px; border-radius:50%; background:#3a1114; color:var(--red); font-style:normal; font-size:12px; display:flex; align-items:center; justify-content:center; font-weight:900; }
+  .item b { display:block; font-size:12.5px; } .item span { color:var(--text2); font-size:11.5px; }
+  .actions { display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
+  .link { color:var(--text2); font-size:11.5px; font-weight:700; }
+  .ok { background:var(--red); color:#fff; font-weight:800; font-size:12.5px; border-radius:4px; padding:8px 22px; }
+  .top { display:flex; align-items:center; gap:12px; padding:8px 14px; font-weight:800; font-size:15px; flex:none; }
+  .ver { padding:10px 14px 4px; } .ver h4 { margin:0; font-size:13.5px; } .ver h4 small { color:var(--text2); font-weight:400; margin-left:6px; font-size:11px; }
+  .ver .now { color:var(--green); font-size:10px; font-weight:800; margin-left:6px; }
+  .ver ul { margin:6px 0 8px 0; padding-left:16px; color:var(--text2); font-size:11.5px; line-height:1.5; }
+  .sep { height:1px; background:var(--raised); margin:4px 14px; }
+  .menu { position:absolute; right:10px; top:58px; background:var(--raised); border-radius:6px; width:170px; padding:6px 0; font-size:12.5px; box-shadow:0 6px 18px rgba(0,0,0,.5); }
+  .menu div { padding:9px 14px; } .menu .hl { background:#3a3a3a; }
+  /* tv */
+  .tv { width:480px; height:270px; background:var(--bg); border:6px solid #2b2b2b; border-radius:6px; position:relative; overflow:hidden; display:flex; }
+  .left { width:170px; background:#0f0f0f; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:800; }
+  .logo { width:48px; height:48px; border-radius:10px; background:linear-gradient(135deg,#7a0a0f,#e50914); }
+  .pill { font-size:8.5px; background:var(--surface); border-radius:12px; padding:3px 9px; font-weight:400; }
+  .right { flex:1; padding:22px; font-size:10px; color:var(--text2); }
+  .right b { color:#fff; font-size:13px; display:block; margin-bottom:10px; }
+  .vlabel { position:absolute; right:10px; bottom:6px; font-size:8px; color:var(--dis); }
+  .tvscrim { position:absolute; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; }
+  .tvdialog { background:var(--surface); border-radius:12px; padding:18px 26px; width:330px; }
+  .tvdialog .dtitle { font-size:17px; margin:2px 0 10px; }
+  .tvdialog .item { font-size:11px; margin-bottom:8px; } .tvdialog .item b { font-size:11px; } .tvdialog .item span { font-size:9.5px; }
+  .tvbtns { display:flex; gap:12px; justify-content:center; margin-top:10px; }
+  .tvbtn { font-size:10.5px; font-weight:800; padding:6px 18px; border-radius:6px; background:#333; color:var(--text2); }
+  .tvbtn.f { background:#fff; color:#000; transform:scale(1.06); }
+  .toast { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); background:var(--surface); border-radius:14px; padding:6px 14px; font-size:9.5px; color:var(--text2); display:flex; gap:8px; align-items:center; }
+  .spin { width:10px; height:10px; border:2px solid #555; border-top-color:var(--red); border-radius:50%; }
+  code { font-size:12px; color:#ddd; }
+</style>
+</head>
+<body>
+<h1>Updates: checked on the TV home, then "What's new"</h1>
+<p class="intro"><b>1. Update check.</b> The TV checks for an update <b>every time its home screen shows</b> (when it comes back to the front, after a video ends or stops), not only when the app really starts: on a Chromecast the app is rarely closed. At most once every 10 minutes, nothing on screen while it checks (T0 is only an option). The phone keeps checking at each launch.<br>
+<b>2. What's new.</b> The first time a new version opens, a short pop-up says what changed for the user, in plain words (2–4 items, no technical terms), with <b>OK</b>. Notes are written with each release and shipped inside the app (they show offline).<br>
+<b>3. Every version.</b> All the notes, newest first, on the phone from the ⋮ menu (P2–P3), and on the TV from the version label of the home screen (T2).</p>
+
+<h2>Phone</h2>
+<div class="row">
+  <div>
+    <p class="label"><span>P1</span> · Pop-up after an update</p>
+    <p class="sub">Shown once, on the first launch of the new version. OK closes it; "All versions" opens P3.</p>
+    <div class="phone">
+      <div class="status"><span>21:04</span><span>▾ ▮</span></div>
+      <div class="bar"><div class="field">streamsite.example</div><div class="ico">▶</div><div class="ico">⧉</div><div class="ico">⋮</div></div>
+      <div class="page"></div>
+      <div class="scrim"><div class="dialog">
+        <span class="badge">CASTIFY 0.6.0</span>
+        <div class="dtitle">What's new</div>
+        <div class="item"><i>1</i><div><b>Series, episode after episode</b><span>Change episode and season from your phone or the TV.</span></div></div>
+        <div class="item"><i>2</i><div><b>Next episode</b><span>A button 30 s before the end. Tick Auto next to chain them.</span></div></div>
+        <div class="item"><i>3</i><div><b>Updates without the hassle</b><span>The TV looks for a new version each time you come back to it.</span></div></div>
+        <div class="actions"><span class="link">All versions</span><span class="ok">OK</span></div>
+      </div></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>P2</span> · ⋮ menu</p>
+    <p class="sub">A new "What's new" line, at the bottom of the menu.</p>
+    <div class="phone">
+      <div class="status"><span>21:04</span><span>▾ ▮</span></div>
+      <div class="bar"><div class="field">streamsite.example</div><div class="ico">▶</div><div class="ico">⧉</div><div class="ico">⋮</div></div>
+      <div class="page"></div>
+      <div class="menu"><div>Home</div><div>Forward</div><div>Add to favorites</div><div>New tab</div><div>Favorites</div><div>History</div><div class="hl">What's new</div></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>P3</span> · Every version</p>
+    <p class="sub">Newest first; the installed one is marked. Back closes.</p>
+    <div class="phone">
+      <div class="status"><span>21:04</span><span>▾ ▮</span></div>
+      <div class="top">← What's new</div>
+      <div class="ver"><h4>0.6.0 <small>Nov 12, 2026</small><span class="now">INSTALLED</span></h4>
+        <ul><li>Series: change episode and season from your phone or the TV</li><li>Next episode button, and Auto next</li><li>The TV looks for updates each time you come back to it</li></ul></div>
+      <div class="sep"></div>
+      <div class="ver"><h4>0.5.4 <small>Nov 12, 2026</small></h4>
+        <ul><li>Site players: Settings, Subtitles and fullscreen work</li></ul></div>
+      <div class="sep"></div>
+      <div class="ver"><h4>0.5.3 <small>Nov 12, 2026</small></h4>
+        <ul><li>The phone's video pauses when you cast</li><li>The Cast icon pulses while connecting, and says when the TV doesn't answer</li><li>A mini player that grows into the remote</li><li>Back works again after closing the app</li></ul></div>
+    </div>
+  </div>
+</div>
+
+<h2>TV</h2>
+<div class="row">
+  <div>
+    <p class="label"><span>T1</span> · Pop-up after an update</p>
+    <p class="sub">Over the home screen, once. OK (focused) closes it, "All versions" opens T2. Back = OK.</p>
+    <div class="tv">
+      <div class="left"><div class="logo"></div>Ready to cast<span class="pill">● MyCast · Standby</span></div>
+      <div class="right"><b>Watch a video on this TV</b>1 · Connect this TV to Wi-Fi<br><br>2 · Open Castify on your phone…<br><br>3 · Find a video…</div>
+      <span class="vlabel">v0.6.0</span>
+      <div class="tvscrim"><div class="tvdialog">
+        <span class="badge">CASTIFY 0.6.0</span>
+        <div class="dtitle">What's new</div>
+        <div class="item"><i>1</i><div><b>Series, episode after episode</b><span>Press ▼, then Episodes, to change episode or season.</span></div></div>
+        <div class="item"><i>2</i><div><b>Next episode</b><span>A button 30 s before the end. Auto next chains them.</span></div></div>
+        <div class="item"><i>3</i><div><b>Updates without the hassle</b><span>The TV looks for a new version each time you come back to it.</span></div></div>
+        <div class="tvbtns"><span class="tvbtn f">OK</span><span class="tvbtn">All versions</span></div>
+      </div></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>T2</span> · Every version</p>
+    <p class="sub">From T1, or ▼ on the home screen to focus the version label, then OK. ▲ ▼ scroll, Back closes.</p>
+    <div class="tv" style="display:block;padding:18px 26px;font-size:10px">
+      <b style="font-size:15px">What's new</b>
+      <div style="margin-top:10px"><b>0.6.0</b> <span style="color:var(--green);font-size:8px;font-weight:800">INSTALLED</span>
+        <ul style="margin:4px 0 8px;padding-left:16px;color:var(--text2);line-height:1.5"><li>Series: change episode and season from your phone or the TV</li><li>Next episode button, and Auto next</li><li>The TV looks for updates each time you come back to it</li></ul></div>
+      <div><b>0.5.4</b><ul style="margin:4px 0 8px;padding-left:16px;color:var(--text2)"><li>Site players: Settings, Subtitles and fullscreen work</li></ul></div>
+      <div><b>0.5.3</b><ul style="margin:4px 0;padding-left:16px;color:var(--text2)"><li>The phone's video pauses when you cast</li><li>A mini player that grows into the remote…</li></ul></div>
+    </div>
+  </div>
+  <div>
+    <p class="label"><span>T0</span> · Option: show the check</p>
+    <p class="sub">A small line at the bottom while the TV checks (1–2 s). Without it the check is silent; the update dialog appears only when there is one (as today).</p>
+    <div class="tv">
+      <div class="left"><div class="logo"></div>Ready to cast<span class="pill">● MyCast · Standby</span></div>
+      <div class="right"><b>Watch a video on this TV</b>1 · Connect this TV to Wi-Fi<br><br>2 · Open Castify on your phone…<br><br>3 · Find a video…</div>
+      <div class="toast"><span class="spin"></span>Checking for updates…</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

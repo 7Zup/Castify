@@ -52,7 +52,9 @@ With several devices attached, target one with `ANDROID_SERIAL` (fish:
 `env ANDROID_SERIAL=... ./gradlew ...`). The agent may run builds, tests and installs.
 Using the apps and checking the TV is done by the user.
 
-**Never reinstall or force-stop the TV app without asking first**: an install kills the app
+**While the user is testing with the agent in the chat, installing is fine even if something plays**
+(user, 11/12/2026: "si on parle ici, tu peux toujours couper l'épisode, c'est en mode debug").
+Otherwise: **never reinstall or force-stop the TV app without asking first**: an install kills the app
 (`am_kill … installPackageLI`) and drops the user out of the movie they are watching. This
 happened ~16 times on 11/05/2026 and looked like crashes to the user. Check first:
 `curl -s http://<tv>:47800/status` → if `state` is not `IDLE`, ask before installing.

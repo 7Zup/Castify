@@ -13,6 +13,10 @@ also ask for one at any time ("publie"). Publishing only happens on the user's r
 
 ## How
 
+First add the version's user-facing notes at the top of \`ReleaseNotes.ALL\`
+(\`core/domain/.../update/WhatsNew.kt\`, see \`docs/features/whats-new.md\`): they are the
+"What's new" pop-up both apps show after the update.
+
 ```fish
 scripts/release.fish 0.5.1
 ```

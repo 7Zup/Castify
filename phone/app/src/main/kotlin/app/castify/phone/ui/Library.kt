@@ -43,6 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -172,6 +173,7 @@ fun BrowserMenu(
     onNewTab: () -> Unit,
     onFavorites: () -> Unit,
     onHistory: () -> Unit,
+    onWhatsNew: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
@@ -202,6 +204,8 @@ fun BrowserMenu(
             HorizontalDivider(color = CastifyColors.Disabled.copy(alpha = 0.4f))
             MenuItem("Favorites", Icons.Filled.Star) { open = false; onFavorites() }
             MenuItem("History", Icons.Filled.History) { open = false; onHistory() }
+            HorizontalDivider(color = CastifyColors.Disabled.copy(alpha = 0.4f))
+            MenuItem("What's new", Icons.Filled.NewReleases) { open = false; onWhatsNew() }
         }
     }
 }

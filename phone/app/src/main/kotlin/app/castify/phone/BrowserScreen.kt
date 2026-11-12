@@ -76,6 +76,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.ui.text.TextRange
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -108,6 +114,7 @@ import app.castify.phone.ui.NowPlayingBar
 import app.castify.phone.ui.ExpandingPlayer
 import app.castify.phone.ui.rememberRemoteExpansion
 import app.castify.phone.ui.SubtitlesSheet
+import app.castify.phone.ui.QualitySheet
 import app.castify.domain.playback.PlayerCommand
 import app.castify.phone.ui.Thumbnail
 import app.castify.phone.ui.formatDuration
@@ -140,6 +147,7 @@ fun BrowserScreen(
     installSniffer: (WebView) -> Unit,
     savePreview: (String, Bitmap) -> Unit,
     tabHistory: TabHistory,
+    onWhatsNew: () -> Unit,
     loadPreview: (String) -> Bitmap?,
     version: String,
 ) {
@@ -158,6 +166,7 @@ fun BrowserScreen(
     val series by viewModel.series.collectAsStateWithLifecycle()
     var fullscreen by remember { mutableStateOf<Fullscreen?>(null) }
     var subtitlesOpen by remember { mutableStateOf(false) }
+    var qualityOpen by remember { mutableStateOf(false) }
     var overlay by remember { mutableStateOf(Overlay.NONE) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     val requestNotifications = rememberNotificationPermission()
@@ -184,6 +193,11 @@ fun BrowserScreen(
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
     LaunchedEffect(Unit) { viewModel.pausePageMedia.collect { webView?.let(PageMedia::pause) } }
     LaunchedEffect(playing) { if (!playing) remote.snapClosed() }
+    // Anything that covers the page takes the focus out of the address bar (and hides the keyboard).
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(remote.visible, videoSheetOpen, connectSheetOpen, overlay, subtitlesOpen, qualityOpen) {
+        if (remote.visible || videoSheetOpen || connectSheetOpen || overlay != Overlay.NONE || subtitlesOpen || qualityOpen) focusManager.clearFocus()
+    }
     BackHandler(enabled = state.canGoBack && !remote.visible && overlay == Overlay.NONE && !onHome) { webView?.goBack() }
 
     Scaffold(
@@ -213,6 +227,7 @@ fun BrowserScreen(
                     onNewTab = { rememberCurrentPreview(); viewModel.newTab() },
                     onFavorites = { overlay = Overlay.FAVORITES },
                     onHistory = { overlay = Overlay.HISTORY },
+                    onWhatsNew = onWhatsNew,
                 )
             }
         },
@@ -251,7 +266,7 @@ fun BrowserScreen(
                 )
             } else {
                 key(activeTab.id) {
-                    TabWebView(activeTab.id, url, installSniffer, tabHistory, onFullscreen = { fullscreen = it }) { webView = it }
+                    TabWebView(activeTab.id, url, installSniffer, tabHistory, onFullscreen = { fullscreen = it }, onTouched = { focusManager.clearFocus() }) { webView = it }
                 }
                 // Over the WebView (kept underneath so Retry can reload it).
                 state.pageError?.let { error ->
@@ -350,6 +365,7 @@ fun BrowserScreen(
             series = series,
             onEpisode = viewModel::playEpisode,
             onAutoNext = viewModel::setAutoNext,
+            onQuality = { qualityOpen = true },
             onCommand = viewModel::control,
             onRetry = viewModel::retry,
             onSubtitles = { subtitlesOpen = true },
@@ -357,6 +373,12 @@ fun BrowserScreen(
     }
 
     fullscreen?.let { FullscreenPlayer(it) }
+
+    if (qualityOpen && playing) {
+        tv.nowPlaying?.let { now ->
+            QualitySheet(now, onPick = { viewModel.control(PlayerCommand.SelectQuality(it)) }, onDismiss = { qualityOpen = false })
+        }
+    }
 
     if (subtitlesOpen && playing) {
         tv.nowPlaying?.let { now ->
@@ -428,6 +450,7 @@ private fun TabWebView(
     installSniffer: (WebView) -> Unit,
     tabHistory: TabHistory,
     onFullscreen: (Fullscreen?) -> Unit,
+    onTouched: () -> Unit,
     onReady: (WebView?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -468,6 +491,11 @@ private fun TabWebView(
             // `vh` 0, so panels sized in vh (a site player's Settings / Subtitles menus) collapse.
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             installSniffer(this)
+            // A touch on the page leaves the address bar (the WebView does not take Compose's focus).
+            setOnTouchListener { _, event ->
+                if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) onTouched()
+                false
+            }
             // Back / forward history kept across restarts: Android Back and the sites' own back work.
             if (!tabHistory.restore(tabId, this, initialUrl)) loadUrl(initialUrl)
         }
@@ -523,6 +551,7 @@ private fun capturePreview(webView: WebView): Bitmap? = runCatching {
  * Top bar (no ← button: Android back does it): address field with a Reload button (on a
  * page), Cast, tabs counter, ⋮ menu. While typing, a → (Go) button appears; Enter works too.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddressBar(
     text: String,
@@ -541,7 +570,30 @@ private fun AddressBar(
 ) {
     val focusManager = LocalFocusManager.current
     var editing by remember { mutableStateOf(false) }
+    // The field keeps its own text and cursor while the user edits: a site that changes its
+    // address meanwhile (players often do) used to overwrite them, so the cursor jumped and its
+    // handle could not be dragged. The page's address comes back once the field is left.
+    var field by remember { mutableStateOf(TextFieldValue(text)) }
+    LaunchedEffect(text, editing) { if (!editing && field.text != text) field = TextFieldValue(text) }
+    // Android's Back (▼ while the keyboard shows) hides the keyboard: leave the field too, so
+    // the icons and the page's address come back. Only on the keyboard going away, not before
+    // it has opened.
+    val imeVisible = WindowInsets.isImeVisible
+    var imeWasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible) {
+        if (imeWasVisible && !imeVisible && editing) focusManager.clearFocus()
+        imeWasVisible = imeVisible
+    }
+    // Entering the field: the cursor goes to the end, so the end of a long address shows and can
+    // be edited straight away (after the tap has placed its own cursor).
+    LaunchedEffect(editing) {
+        if (editing) {
+            withFrameNanos { }
+            field = field.copy(selection = TextRange(field.text.length))
+        }
+    }
     val submit = {
+        onTextChange(field.text)
         onSubmit()
         focusManager.clearFocus()
     }
@@ -552,8 +604,8 @@ private fun AddressBar(
     ) {
         // Home screen: the search field sits under the logo (HomeScreen), only the icons stay here.
         if (onHome) Spacer(Modifier.weight(1f).height(56.dp)) else OutlinedTextField(
-            value = text,
-            onValueChange = onTextChange,
+            value = field,
+            onValueChange = { field = it; onTextChange(it.text) },
             modifier = Modifier
                 .weight(1f)
                 .onFocusChanged { editing = it.isFocused }
@@ -573,7 +625,8 @@ private fun AddressBar(
         // Tight icon row (user feedback): narrower buttons, full 48 dp height for touch. The
         // default 48x48 minimum would put the gaps back, so it is lifted for these three only.
         // Widths give the same visible gap between Cast, tabs counter and ⋮ (the ⋮ glyph is thin).
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        // While editing, the field takes the whole bar (like Chrome): the icons come back after.
+        if (!editing) CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
             // Videos of the page (mockup option A, `docs/mockups/videos-button.html`): in the bar,
             // never over the page, where it used to hide the sites' own player buttons.
             if (videoCount != null) {

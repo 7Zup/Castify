@@ -8,6 +8,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import app.castify.phone.ui.CastifyTheme
 import app.castify.phone.ui.UpdateDialog
+import app.castify.phone.ui.ReleaseNotesScreen
+import app.castify.phone.ui.WhatsNewDialog
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
 
@@ -23,6 +29,9 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) container.checkForUpdate()
         enableEdgeToEdge()
         setContent {
+            // "What's new" once after an update; it goes before the update dialog (mockup P1).
+            var whatsNew by remember { mutableStateOf(container.whatsNew.popup()) }
+            var notesOpen by remember { mutableStateOf(false) }
             CastifyTheme {
                 BrowserScreen(
                     viewModel,
@@ -35,8 +44,21 @@ class MainActivity : ComponentActivity() {
                     },
                     loadPreview = container::loadPreview,
                     version = container.updater.currentVersion.label,
+                    onWhatsNew = { notesOpen = true },
                 )
-                UpdateDialog(container.updater)
+                val note = whatsNew
+                if (note != null) {
+                    WhatsNewDialog(
+                        note,
+                        onOk = { container.whatsNew.markSeen(); whatsNew = null },
+                        onAllVersions = { container.whatsNew.markSeen(); whatsNew = null; notesOpen = true },
+                    )
+                } else {
+                    UpdateDialog(container.updater)
+                }
+                if (notesOpen) {
+                    ReleaseNotesScreen(container.whatsNew.all, container.updater.currentVersion.label) { notesOpen = false }
+                }
             }
         }
     }

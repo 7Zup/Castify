@@ -5,6 +5,8 @@ import app.castify.domain.model.MediaStream
 import app.castify.domain.model.NowPlaying
 import app.castify.domain.model.PlaybackState
 import app.castify.domain.model.PlaybackStats
+import app.castify.domain.model.Quality
+import app.castify.domain.model.StreamDetails
 import app.castify.domain.model.StreamType
 import app.castify.domain.model.TvDevice
 import app.castify.domain.playback.PlayerCommand
@@ -95,7 +97,8 @@ class SeriesTest {
         val asked = mutableListOf<String>()
         override suspend fun findVideo(url: String, timeoutMs: Long): DetectedVideo? {
             asked += url
-            return if (found) DetectedVideo(MediaStream("$url/v.m3u8", StreamType.HLS, url), thumbnailUrl = null, details = null) else null
+            val details = StreamDetails(durationMs = 1_800_000, qualities = listOf(Quality(1080, "1080p"), Quality(720, "720p")))
+            return if (found) DetectedVideo(MediaStream("$url/v.m3u8", StreamType.HLS, url), thumbnailUrl = null, details = details) else null
         }
     }
 
@@ -111,23 +114,23 @@ class SeriesTest {
         val stream = episodes.withSeries(MediaStream("https://cdn/a.m3u8", StreamType.HLS, address.url), address)
         assertEquals("Example Show · S1 E1 · Pilot", stream.title)
         assertEquals(3, stream.series?.episodes?.size)
-        episodes.onSent(stream, address, height = 720)
+        episodes.onSent(stream, address)
         assertEquals(EpisodeNumber(1, 2), episodes.state.value?.next?.number)
     }
 
     @Test
-    fun `playing another episode loads its address and sends it in the same quality`() = runTest {
+    fun `playing another episode loads its address and sends it in its best quality`() = runTest {
         val tv = FakeTv()
         val session = TvSession(tv, backgroundScope).apply { connect(tvDevice) }
         runCurrent()
         val loader = FakeLoader()
         val episodes = EpisodePlayer(catalog, loader, session, backgroundScope)
-        episodes.onSent(episodes.withSeries(MediaStream("https://cdn/a.m3u8", StreamType.HLS, address.url), address), address, height = 720)
+        episodes.onSent(episodes.withSeries(MediaStream("https://cdn/a.m3u8", StreamType.HLS, address.url), address), address)
 
         episodes.play(EpisodeNumber(2, 1))
         runCurrent()
         assertEquals("https://streamsite.example/play/tv/42/2/1", loader.asked.single())
-        assertEquals(720, tv.played.last().preferredHeight)
+        assertEquals(1080, tv.played.last().preferredHeight)
         assertEquals(EpisodeNumber(2, 1), tv.played.last().series?.current)
         assertEquals(EpisodeNumber(2, 1), episodes.state.value?.current)
     }
@@ -138,7 +141,7 @@ class SeriesTest {
         val session = TvSession(tv, backgroundScope).apply { connect(tvDevice) }
         runCurrent()
         val episodes = EpisodePlayer(catalog, FakeLoader(found = false), session, backgroundScope)
-        episodes.onSent(episodes.withSeries(MediaStream("https://cdn/a.m3u8", StreamType.HLS, address.url), address), address, null)
+        episodes.onSent(episodes.withSeries(MediaStream("https://cdn/a.m3u8", StreamType.HLS, address.url), address), address)
 
         tv.nowPlaying = NowPlaying(PlaybackState.PLAYING, seriesPageUrl = address.url, episodeRequest = EpisodeRequest(7, EpisodeNumber(1, 2)))
         session.refresh()
@@ -150,7 +153,7 @@ class SeriesTest {
     @Test
     fun `a phone that connects while an episode plays gets the series from the tv`() = runTest {
         val tv = FakeTv().apply {
-            nowPlaying = NowPlaying(PlaybackState.PLAYING, seriesPageUrl = "https://streamsite.example/play/tv/42/1/2", preferredHeight = 1080)
+            nowPlaying = NowPlaying(PlaybackState.PLAYING, seriesPageUrl = "https://streamsite.example/play/tv/42/1/2")
         }
         val session = TvSession(tv, backgroundScope)
         val episodes = EpisodePlayer(catalog, FakeLoader(), session, backgroundScope)
@@ -158,7 +161,6 @@ class SeriesTest {
         runCurrent()
         val state = episodes.state.value!!
         assertEquals(EpisodeNumber(1, 2), state.current)
-        assertEquals(1080, state.height)
         assertEquals(EpisodeNumber(2, 1), state.next?.number)
     }
 
@@ -169,7 +171,7 @@ class SeriesTest {
         runCurrent()
         val loader = FakeLoader()
         val episodes = EpisodePlayer(catalog, loader, session, backgroundScope)
-        episodes.onSent(episodes.withSeries(MediaStream("https://cdn/a.m3u8", StreamType.HLS, address.url), address), address, null)
+        episodes.onSent(episodes.withSeries(MediaStream("https://cdn/a.m3u8", StreamType.HLS, address.url), address), address)
 
         tv.nowPlaying = NowPlaying(PlaybackState.PLAYING, seriesPageUrl = address.url, episodeRequest = EpisodeRequest(8, EpisodeNumber(1, 2)))
         session.refresh()

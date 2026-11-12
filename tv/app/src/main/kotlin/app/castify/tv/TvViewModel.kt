@@ -9,6 +9,7 @@ import app.castify.domain.model.MediaStream
 import app.castify.domain.model.NowPlaying
 import app.castify.domain.model.PlaybackState
 import app.castify.domain.model.PlaybackStats
+import app.castify.domain.model.Quality
 import app.castify.domain.playback.PlayerCommand
 import app.castify.domain.playback.RemoteControl
 import app.castify.domain.subtitles.SubtitleMenu
@@ -23,6 +24,8 @@ import app.castify.domain.series.EpisodeRequest
 import app.castify.domain.series.SeriesInfo
 import app.castify.domain.status.TvPresence
 import app.castify.domain.update.AppUpdater
+import app.castify.domain.update.ReleaseNote
+import app.castify.domain.update.WhatsNew
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
@@ -42,6 +45,9 @@ enum class TvScreen { WAITING, PLAYING, ERROR }
 /** Buttons of the error screen (mockup T1 / T2): Retry restarts where it stopped, Home stops. */
 enum class ErrorButton { RETRY, HOME }
 
+/** "What's new" pop-up buttons (mockup `whats-new.html`, T1): OK first. */
+enum class WhatsNewButton { OK, ALL_VERSIONS }
+
 /** Update dialog buttons (mockup `app-update.html`, T1 / T3): Update or Retry first, then Not now. */
 enum class UpdateButton { PRIMARY, NOT_NOW }
 
@@ -52,10 +58,15 @@ data class SubtitleMenuState(val options: List<SubtitleOption>, val focused: Int
  * Netflix-style player controls (▼). The progress bar sits above the button row; no Stop
  * button (user: Back / Home already stop). Room is left for episode buttons later.
  */
-enum class ControlFocus { PROGRESS, BACK_10, PLAY_PAUSE, FORWARD_10, SUBTITLES, EPISODES }
+enum class ControlFocus { PROGRESS, BACK_10, PLAY_PAUSE, FORWARD_10, SUBTITLES, QUALITY, EPISODES }
 
-/** EPISODES only shows for a series. */
-val CONTROL_BUTTONS = listOf(ControlFocus.BACK_10, ControlFocus.PLAY_PAUSE, ControlFocus.FORWARD_10, ControlFocus.SUBTITLES, ControlFocus.EPISODES)
+/** EPISODES only shows for a series. QUALITY sits between CC and Episodes (mockup quality.html). */
+val CONTROL_BUTTONS = listOf(
+    ControlFocus.BACK_10, ControlFocus.PLAY_PAUSE, ControlFocus.FORWARD_10, ControlFocus.SUBTITLES, ControlFocus.QUALITY, ControlFocus.EPISODES,
+)
+
+/** Quality menu (mockup quality.html, T2): the video's qualities, best first. */
+data class QualityMenuState(val options: List<Quality>, val focused: Int)
 
 /** An episode the TV asked the phone for (mockup T5): loading, then failed with Retry / Back. */
 data class EpisodeLoad(val number: EpisodeNumber, val failed: Boolean = false, val focus: ErrorButton = ErrorButton.RETRY)
@@ -78,6 +89,8 @@ data class TvUiState(
     val diagnosticsVisible: Boolean = false,
     /** Null = closed. */
     val subtitleMenu: SubtitleMenuState? = null,
+    /** Null = closed. */
+    val qualityMenu: QualityMenuState? = null,
     /** Time bar shown for [OSD_AFTER_SEEK_MS] after a seek (it is always shown while paused). */
     val timeBarAfterSeek: Boolean = false,
     /** Cumulative ±10 s jumps ("+30 s"), 0 = no bubble. */
@@ -111,6 +124,13 @@ data class TvUiState(
     val nextDismissed: Boolean = false,
     /** Auto next countdown, seconds left; null = none. */
     val nextCountdown: Int? = null,
+    /** "What's new" pop-up after an update (T1); null = none. */
+    val whatsNew: ReleaseNote? = null,
+    val whatsNewFocus: WhatsNewButton = WhatsNewButton.OK,
+    /** Every version's notes (T2): null = closed, else the first visible version. */
+    val releaseNotesFrom: Int? = null,
+    /** ▼ on the welcome screen focuses the version label; OK opens every version's notes. */
+    val versionFocused: Boolean = false,
 ) {
     val series: SeriesInfo? get() = current?.series
 
@@ -118,7 +138,7 @@ data class TvUiState(
     val nextVisible: Boolean
         get() {
             if (series?.next == null || nextDismissed || episodeLoad != null) return false
-            if (controls != null || episodesPanel != null || subtitleMenu != null || stats.isLive) return false
+            if (controls != null || episodesPanel != null || subtitleMenu != null || qualityMenu != null || stats.isLive) return false
             if (stats.state == PlaybackState.ENDED) return true
             val duration = stats.durationMs ?: return false
             val playing = stats.state == PlaybackState.PLAYING || stats.state == PlaybackState.PAUSED || stats.state == PlaybackState.BUFFERING
@@ -127,7 +147,7 @@ data class TvUiState(
 
     /** Update dialog on screen: welcome screen + something to say (Android's own UI once installing). */
     val updateDialogVisible: Boolean
-        get() = screen == TvScreen.WAITING &&
+        get() = screen == TvScreen.WAITING && whatsNew == null && releaseNotesFrom == null &&
             (update is AppUpdater.State.Available || update is AppUpdater.State.Downloading || update is AppUpdater.State.Failed)
 
     val timeBarVisible: Boolean
@@ -135,7 +155,7 @@ data class TvUiState(
 
     /** Something drawn over the video that Back should remove first. */
     val overlayVisible: Boolean
-        get() = controls != null || subtitleMenu != null || timeBarVisible || diagnosticsVisible || seekBubbleMs != 0L
+        get() = controls != null || subtitleMenu != null || qualityMenu != null || timeBarVisible || diagnosticsVisible || seekBubbleMs != 0L
 }
 
 /** User rule: `Next episode` shows 30 s before the end. */
@@ -162,12 +182,20 @@ class TvViewModel(
     private val network: NetworkMonitor,
     private val updater: AppUpdater,
     private val settings: TvSettings,
+    private val whatsNew: WhatsNew,
+    /** The welcome screen shows (again): check for an update (throttled by the caller). */
+    private val onHomeShown: () -> Unit,
 ) : ViewModel() {
+
+    /** Every version's notes, newest first (T2). */
+    val releaseNotes: List<ReleaseNote> = whatsNew.all
 
     /** Subtitle to turn back on once the retried stream lists its tracks. */
     private var pendingSubtitleId: String? = null
 
-    private val _state = MutableStateFlow(TvUiState(versionLabel = updater.currentVersion.label, autoNext = settings.autoNext))
+    private val _state = MutableStateFlow(
+        TvUiState(versionLabel = updater.currentVersion.label, autoNext = settings.autoNext, whatsNew = whatsNew.popup()),
+    )
     val state: StateFlow<TvUiState> = _state.asStateFlow()
 
     init {
@@ -233,6 +261,7 @@ class TvViewModel(
                         subtitleMenu = it.subtitleMenu.takeIf { screen == TvScreen.PLAYING },
                         controls = it.controls.takeIf { screen == TvScreen.PLAYING },
                         episodesPanel = it.episodesPanel.takeIf { screen == TvScreen.PLAYING },
+                        qualityMenu = it.qualityMenu.takeIf { screen == TvScreen.PLAYING },
                     )
                 }
                 maybeCountDown()
@@ -241,6 +270,14 @@ class TvViewModel(
     }
 
     init {
+        // Back on the welcome screen (video ended or stopped): look for an update.
+        viewModelScope.launch {
+            var previous = _state.value.screen
+            _state.collect { s ->
+                if (s.screen == TvScreen.WAITING && previous != TvScreen.WAITING) onHomeShown()
+                previous = s.screen
+            }
+        }
         // Welcome screen state: re-evaluated every second (a phone stops calling = Standby).
         val ticker = flow { while (currentCoroutineContext().isActive) { emit(Unit); delay(1_000) } }
         viewModelScope.launch {
@@ -289,6 +326,8 @@ class TvViewModel(
 
     fun start(deviceName: String) {
         _state.update { it.copy(deviceName = deviceName) }
+        // The app comes back to the front (it rarely really closes on a Chromecast).
+        if (_state.value.screen == TvScreen.WAITING) onHomeShown()
         receiver.start(deviceName) {
             val current = _state.value
             if (current.screen == TvScreen.PLAYING) NowPlaying.from(player.stats.value, current.current, current.autoNext, current.episodeRequest)
@@ -305,7 +344,7 @@ class TvViewModel(
     /** Returns true when the key was consumed. Unhandled keys (Back while waiting) go to the system. */
     fun onKey(key: RemoteKey): Boolean {
         return when (_state.value.screen) {
-            TvScreen.WAITING -> if (_state.value.updateDialogVisible) onUpdateKey(key) else false
+            TvScreen.WAITING -> onWelcomeKey(key)
             TvScreen.ERROR -> when (key) {
                 RemoteKey.LEFT -> { _state.update { it.copy(errorFocus = ErrorButton.RETRY) }; true }
                 RemoteKey.RIGHT -> { _state.update { it.copy(errorFocus = ErrorButton.HOME) }; true }
@@ -316,6 +355,7 @@ class TvViewModel(
             TvScreen.PLAYING -> {
                 _state.value.episodeLoad?.let { return onEpisodeLoadKey(it, key) }
                 _state.value.subtitleMenu?.let { return onMenuKey(it, key).also { touchControls() } }
+                _state.value.qualityMenu?.let { return onQualityKey(it, key).also { touchControls() } }
                 _state.value.episodesPanel?.let { return onPanelKey(it, key).also { touchControls() } }
                 _state.value.controls?.let { return onControlsKey(it, key) }
                 if (_state.value.nextVisible) {
@@ -359,6 +399,50 @@ class TvViewModel(
             RemoteKey.UP, RemoteKey.DOWN -> Unit
         }
         return true
+    }
+
+    /**
+     * Welcome screen, in order: every version's notes (▲ ▼ scroll, OK / Back close), the
+     * "What's new" pop-up (◀ ▶, OK; Back = OK), the update dialog, else ▼ / ▲ move the focus
+     * to / from the version label and OK on it opens every version's notes.
+     */
+    private fun onWelcomeKey(key: RemoteKey): Boolean {
+        val s = _state.value
+        s.releaseNotesFrom?.let { from ->
+            when (key) {
+                RemoteKey.UP -> _state.update { it.copy(releaseNotesFrom = (from - 1).coerceAtLeast(0)) }
+                RemoteKey.DOWN -> _state.update { it.copy(releaseNotesFrom = (from + 1).coerceAtMost((releaseNotes.size - 1).coerceAtLeast(0))) }
+                RemoteKey.OK, RemoteKey.BACK -> _state.update { it.copy(releaseNotesFrom = null) }
+                RemoteKey.LEFT, RemoteKey.RIGHT -> Unit
+            }
+            return true
+        }
+        if (s.whatsNew != null) {
+            when (key) {
+                RemoteKey.LEFT -> _state.update { it.copy(whatsNewFocus = WhatsNewButton.OK) }
+                RemoteKey.RIGHT -> _state.update { it.copy(whatsNewFocus = WhatsNewButton.ALL_VERSIONS) }
+                RemoteKey.OK -> closeWhatsNew(openAll = s.whatsNewFocus == WhatsNewButton.ALL_VERSIONS)
+                RemoteKey.BACK -> closeWhatsNew(openAll = false)
+                RemoteKey.UP, RemoteKey.DOWN -> Unit
+            }
+            return true
+        }
+        if (s.updateDialogVisible) return onUpdateKey(key)
+        return when (key) {
+            RemoteKey.DOWN -> { _state.update { it.copy(versionFocused = true) }; true }
+            RemoteKey.UP -> { _state.update { it.copy(versionFocused = false) }; true }
+            RemoteKey.OK -> {
+                if (s.versionFocused) _state.update { it.copy(releaseNotesFrom = 0) }
+                s.versionFocused
+            }
+            RemoteKey.BACK -> if (s.versionFocused) { _state.update { it.copy(versionFocused = false) }; true } else false
+            RemoteKey.LEFT, RemoteKey.RIGHT -> false
+        }
+    }
+
+    private fun closeWhatsNew(openAll: Boolean) {
+        whatsNew.markSeen()
+        _state.update { it.copy(whatsNew = null, releaseNotesFrom = if (openAll) 0 else null) }
     }
 
     private var stopConfirmJob: Job? = null
@@ -413,7 +497,7 @@ class TvViewModel(
                 val s = _state.value
                 if (s.controls == null) break
                 val idle = System.currentTimeMillis() - lastControlsKeyAt > CONTROLS_IDLE_MS
-                if (idle && s.subtitleMenu == null && s.episodesPanel == null && s.stats.state != PlaybackState.PAUSED) {
+                if (idle && s.subtitleMenu == null && s.qualityMenu == null && s.episodesPanel == null && s.stats.state != PlaybackState.PAUSED) {
                     hideControls()
                     break
                 }
@@ -458,6 +542,7 @@ class TvViewModel(
                 ControlFocus.BACK_10 -> apply(PlayerCommand.SeekBy(-RemoteControl.SEEK_STEP_MS))
                 ControlFocus.FORWARD_10 -> apply(PlayerCommand.SeekBy(RemoteControl.SEEK_STEP_MS))
                 ControlFocus.SUBTITLES -> openSubtitleMenu()
+                ControlFocus.QUALITY -> openQualityMenu()
                 ControlFocus.EPISODES -> openEpisodesPanel()
             }
         }
@@ -520,6 +605,30 @@ class TvViewModel(
                 _state.update { it.copy(subtitleMenu = null) }
             }
             RemoteKey.BACK -> _state.update { it.copy(subtitleMenu = null) }
+            RemoteKey.LEFT, RemoteKey.RIGHT -> Unit
+        }
+        return true
+    }
+
+    // ---------- Quality (mockup docs/mockups/quality.html, T1–T2) ----------
+
+    private fun openQualityMenu() {
+        val stats = player.stats.value
+        val current = NowPlaying(PlaybackState.PLAYING, qualities = stats.qualities, qualityHeight = stats.qualityHeight).currentQuality
+        val focused = stats.qualities.indexOf(current).coerceAtLeast(0)
+        _state.update { it.copy(qualityMenu = QualityMenuState(stats.qualities, focused)) }
+    }
+
+    /** ▲ ▼ move, OK picks and closes (the video goes on in that quality), Back closes. */
+    private fun onQualityKey(menu: QualityMenuState, key: RemoteKey): Boolean {
+        when (key) {
+            RemoteKey.UP -> _state.update { it.copy(qualityMenu = menu.copy(focused = (menu.focused - 1).coerceAtLeast(0))) }
+            RemoteKey.DOWN -> _state.update { it.copy(qualityMenu = menu.copy(focused = (menu.focused + 1).coerceAtMost((menu.options.size - 1).coerceAtLeast(0)))) }
+            RemoteKey.OK -> {
+                if (menu.options.size > 1) menu.options.getOrNull(menu.focused)?.let { handlePlayerCommand(PlayerCommand.SelectQuality(it.height)) }
+                _state.update { it.copy(qualityMenu = null) }
+            }
+            RemoteKey.BACK -> _state.update { it.copy(qualityMenu = null) }
             RemoteKey.LEFT, RemoteKey.RIGHT -> Unit
         }
         return true
@@ -673,6 +782,8 @@ class TvViewModel(
                     container.network,
                     container.updater,
                     container.settings,
+                    container.whatsNew,
+                    container::checkForUpdate,
                 )
             }
         }

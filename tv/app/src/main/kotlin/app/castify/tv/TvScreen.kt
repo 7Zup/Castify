@@ -53,8 +53,12 @@ import androidx.media3.ui.PlayerView
 import app.castify.domain.model.PlaybackState
 import app.castify.domain.model.PlaybackStats
 import app.castify.domain.series.Episode
+import app.castify.domain.update.ReleaseNote
 import app.castify.domain.series.SeriesInfo
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.HighQuality
+import app.castify.domain.model.NowPlaying
+import app.castify.domain.model.Quality
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
@@ -88,13 +92,22 @@ fun TvScreenContent(viewModel: TvViewModel, surface: VideoSurface) {
             when (state.screen) {
                 TvScreen.WAITING -> {
                     Waiting(state.deviceName, state.presence)
+                    // ▼ focuses it, OK opens every version's notes (mockup whats-new.html, T2).
                     Text(
                         state.versionLabel,
-                        color = TvColors.Disabled,
+                        color = if (state.versionFocused) TvColors.Video else TvColors.Disabled,
                         fontSize = 13.sp,
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(horizontal = 28.dp, vertical = 20.dp),
+                        fontWeight = if (state.versionFocused) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(horizontal = 20.dp, vertical = 14.dp)
+                            .scale(if (state.versionFocused) 1.1f else 1f)
+                            .background(if (state.versionFocused) TvColors.TextPrimary else Color.Transparent, RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
                     )
                     if (state.updateDialogVisible) UpdateDialog(state.update, state.updateFocus, state.versionLabel)
+                    state.whatsNew?.let { WhatsNewDialog(it, state.whatsNewFocus) }
+                    state.releaseNotesFrom?.let { ReleaseNotesScreen(viewModel.releaseNotes, it, state.versionLabel) }
                 }
                 TvScreen.PLAYING -> {
                     Video(surface)
@@ -131,6 +144,9 @@ fun TvScreenContent(viewModel: TvViewModel, surface: VideoSurface) {
                     }
                     state.subtitleMenu?.let { menu ->
                         SubtitleMenuPanel(menu, state.stats.selectedSubtitleId, Modifier.align(Alignment.CenterEnd))
+                    }
+                    state.qualityMenu?.let { menu ->
+                        QualityMenuPanel(menu, currentQuality(state.stats)?.height, Modifier.align(Alignment.CenterEnd))
                     }
                 }
                 TvScreen.ERROR -> PlaybackFailed(state)
@@ -196,6 +212,48 @@ private fun SubtitleMenuPanel(menu: SubtitleMenuState, selectedId: String?, modi
 }
 
 private const val VISIBLE_MENU_ROWS = 8
+
+private fun currentQuality(stats: PlaybackStats): Quality? =
+    NowPlaying(PlaybackState.PLAYING, qualities = stats.qualities, qualityHeight = stats.qualityHeight).currentQuality
+
+/** Quality menu (mockup quality.html, T2): same look as the subtitle menu, the playing one checked. */
+@Composable
+private fun QualityMenuPanel(menu: QualityMenuState, currentHeight: Int?, modifier: Modifier) {
+    Column(
+        modifier
+            .padding(32.dp)
+            .width(260.dp)
+            .background(TvColors.Scrim, RoundedCornerShape(12.dp))
+            .padding(vertical = 16.dp),
+    ) {
+        Text("Quality", color = TvColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+        if (menu.options.size <= 1) {
+            Text("Only one quality for this video", color = TvColors.TextSecondary, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            return@Column
+        }
+        menu.options.forEachIndexed { index, option ->
+            val focused = index == menu.focused
+            Row(
+                Modifier
+                    .padding(horizontal = 12.dp, vertical = 2.dp)
+                    .fillMaxWidth()
+                    .scale(if (focused) 1.04f else 1f)
+                    .then(if (focused) Modifier.border(2.dp, TvColors.TextPrimary, RoundedCornerShape(8.dp)) else Modifier)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (index == 0) "${option.label} · best" else option.label,
+                    color = if (focused) TvColors.TextPrimary else TvColors.TextSecondary,
+                    fontSize = 17.sp,
+                    fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.weight(1f),
+                )
+                if (option.height == currentHeight) Text("✓", color = TvColors.Red, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
 
 /**
  * Bottom time bar (pause, or 3 s after a seek): title if known, `❚❚ Paused`, progress bar
@@ -287,6 +345,12 @@ private fun ControlButtons(stats: PlaybackStats, focus: ControlFocus, hasEpisode
                 else -> "Subtitles · Off"
             },
             focus == ControlFocus.SUBTITLES,
+        )
+        val quality = currentQuality(stats)
+        ControlButton(
+            Icons.Filled.HighQuality,
+            if (quality != null) "Quality · ${quality.label}" else "Quality",
+            focus == ControlFocus.QUALITY,
         )
         if (hasEpisodes) ControlButton(Icons.Filled.VideoLibrary, "Episodes", focus == ControlFocus.EPISODES)
     }
@@ -788,6 +852,72 @@ private fun UpdateDialog(update: AppUpdater.State, focus: UpdateButton, current:
                     }
                 }
                 AppUpdater.State.Idle, is AppUpdater.State.WaitingPermission, is AppUpdater.State.Installing -> Unit
+            }
+        }
+    }
+}
+
+/** "What's new" after an update (mockup T1): numbered items, OK focused first. */
+@Composable
+private fun WhatsNewDialog(note: ReleaseNote, focus: WhatsNewButton) {
+    Box(Modifier.fillMaxSize().background(TvColors.Scrim), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier
+                .widthIn(max = 640.dp)
+                .background(TvColors.Surface, RoundedCornerShape(16.dp))
+                .padding(horizontal = 44.dp, vertical = 32.dp),
+        ) {
+            Text("CASTIFY ${note.version}", color = TvColors.Red, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+            Text("What's new", color = TvColors.TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+            note.items.forEachIndexed { index, item ->
+                Row(Modifier.padding(bottom = 14.dp), verticalAlignment = Alignment.Top) {
+                    Box(Modifier.size(30.dp).background(TvColors.Red.copy(alpha = 0.18f), CircleShape), contentAlignment = Alignment.Center) {
+                        Text("${index + 1}", color = TvColors.Red, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Column(Modifier.padding(start = 16.dp)) {
+                        Text(item.title, color = TvColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(item.detailFor(tv = true), color = TvColors.TextSecondary, fontSize = 15.sp)
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally)) {
+                ErrorButtonView("OK", focus == WhatsNewButton.OK)
+                ErrorButtonView("All versions", focus == WhatsNewButton.ALL_VERSIONS)
+            }
+        }
+    }
+}
+
+/** Every version's notes, newest first (mockup T2). ▲ ▼ move by one version, OK / Back close. */
+@Composable
+private fun ReleaseNotesScreen(notes: List<ReleaseNote>, from: Int, installedLabel: String) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(TvColors.Background)
+            .padding(start = 72.dp, end = 72.dp, top = 40.dp, bottom = 48.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("What's new", color = TvColors.TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text("▲ ▼ to scroll · Back to close", color = TvColors.Disabled, fontSize = 13.sp)
+        }
+        notes.drop(from).forEachIndexed { offset, note ->
+            Row(Modifier.padding(top = 22.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(note.version.toString(), color = TvColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text(note.date, color = TvColors.TextSecondary, fontSize = 14.sp, modifier = Modifier.padding(start = 12.dp))
+                if (note.version.label == installedLabel) {
+                    Text("INSTALLED", color = TvColors.Ready, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 12.dp))
+                }
+            }
+            note.items.forEach { item ->
+                Text(
+                    "•  ${item.title} — ${item.detailFor(tv = true)}",
+                    color = TvColors.TextSecondary,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+                )
             }
         }
     }

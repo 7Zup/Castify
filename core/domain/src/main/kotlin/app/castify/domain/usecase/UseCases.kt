@@ -144,6 +144,7 @@ class HandlePlayerCommand(private val player: Player) {
             is PlayerCommand.SeekTo -> player.seekTo(command.positionMs)
             PlayerCommand.Stop -> player.stop()
             is PlayerCommand.SelectSubtitle -> player.selectSubtitle(command.trackId)
+            is PlayerCommand.SelectQuality -> player.selectQuality(command.height)
             PlayerCommand.ToggleDiagnostics, PlayerCommand.OpenSubtitleMenu, PlayerCommand.ShowControls,
             is PlayerCommand.SetAutoNext, is PlayerCommand.EpisodeFailed, is PlayerCommand.ClaimEpisode -> return false
         }

@@ -64,9 +64,19 @@ data class NowPlaying(
      * finds the series from it, without going back to the site.
      */
     val seriesPageUrl: String? = null,
-    /** Quality the playing video was sent in (null = player default), reused for other episodes. */
+    /** Quality the playing video was sent in (null = player default). */
     val preferredHeight: Int? = null,
+    /** Qualities the video offers, best first; [qualityHeight] = the one playing. */
+    val qualities: List<Quality> = emptyList(),
+    val qualityHeight: Int? = null,
 ) {
+    /** The quality playing, as listed (closest height when the stream reports another one). */
+    val currentQuality: Quality?
+        get() {
+            val height = qualityHeight ?: return null
+            return qualities.firstOrNull { it.height == height } ?: qualities.minByOrNull { kotlin.math.abs(it.height - height) }
+        }
+
     /** A video is loaded on the TV (playing, paused or loading). */
     val isActive: Boolean
         get() = state == PlaybackState.PLAYING || state == PlaybackState.PAUSED || state == PlaybackState.BUFFERING
@@ -86,6 +96,8 @@ data class NowPlaying(
                 autoNext = autoNext,
                 episodeRequest = episodeRequest,
                 seriesPageUrl = stream.series?.addressUrl,
+                qualities = stats.qualities,
+                qualityHeight = stats.qualityHeight,
                 preferredHeight = stream.preferredHeight,
                 state = stats.state,
                 positionMs = stats.positionMs,
@@ -210,6 +222,10 @@ data class PlaybackStats(
     val subtitles: List<SubtitleTrack> = emptyList(),
     /** Null = subtitles off. */
     val selectedSubtitleId: String? = null,
+    /** Qualities the video offers, best first (one when the site has only one). */
+    val qualities: List<Quality> = emptyList(),
+    /** Height of the video playing now; null until it is known. */
+    val qualityHeight: Int? = null,
 )
 
 data class PlaybackError(
