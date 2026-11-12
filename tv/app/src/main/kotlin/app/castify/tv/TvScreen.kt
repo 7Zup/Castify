@@ -58,6 +58,10 @@ import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import app.castify.domain.status.PlaybackFailure
 import app.castify.domain.status.TvPresence
 import app.castify.domain.update.AppUpdater
@@ -358,11 +362,16 @@ private fun EpisodesPanel(series: SeriesInfo, panel: EpisodesPanelState, autoNex
             }
             val episodes = show.episodesOf(panel.season)
             // A window of cards that keeps the focused one in view.
-            val first = (panel.episodeIndex - 2).coerceIn(0, (episodes.size - VISIBLE_EPISODES).coerceAtLeast(0))
-            Row(Modifier.padding(top = 28.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                episodes.drop(first).take(VISIBLE_EPISODES).forEachIndexed { offset, episode ->
-                    val focused = panel.row == EpisodesRow.EPISODES && first + offset == panel.episodeIndex
-                    EpisodeCard(episode, playing = episode.number == series.current, focused = focused)
+            val first = (panel.episodeIndex - 1).coerceIn(0, (episodes.size - VISIBLE_EPISODES).coerceAtLeast(0))
+            // Cards share the screen width: fixed widths overflowed it and crushed the last card.
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 28.dp)) {
+                val gap = 18.dp
+                val cardWidth = (maxWidth - gap * (VISIBLE_EPISODES - 1)) / VISIBLE_EPISODES
+                Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    episodes.drop(first).take(VISIBLE_EPISODES).forEachIndexed { offset, episode ->
+                        val focused = panel.row == EpisodesRow.EPISODES && first + offset == panel.episodeIndex
+                        EpisodeCard(episode, playing = episode.number == series.current, focused = focused, width = cardWidth)
+                    }
                 }
             }
         }
@@ -390,15 +399,15 @@ private fun EpisodesPanel(series: SeriesInfo, panel: EpisodesPanelState, autoNex
     }
 }
 
-private const val VISIBLE_EPISODES = 5
+private const val VISIBLE_EPISODES = 4
 
 @Composable
-private fun EpisodeCard(episode: Episode, playing: Boolean, focused: Boolean) {
-    Column(Modifier.width(200.dp).scale(if (focused) 1.06f else 1f)) {
+private fun EpisodeCard(episode: Episode, playing: Boolean, focused: Boolean, width: Dp) {
+    Column(Modifier.width(width).scale(if (focused) 1.06f else 1f)) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(112.dp)
+                .aspectRatio(16f / 9f)
                 .then(if (focused) Modifier.border(3.dp, TvColors.TextPrimary, RoundedCornerShape(6.dp)) else Modifier)
                 .background(TvColors.Surface, RoundedCornerShape(6.dp)),
             contentAlignment = Alignment.Center,
@@ -432,10 +441,11 @@ private fun EpisodeCard(episode: Episode, playing: Boolean, focused: Boolean) {
             color = TvColors.TextPrimary,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            maxLines = 2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 8.dp),
         )
-        episode.runtimeMin?.let { Text("$it min", color = TvColors.TextSecondary, fontSize = 12.sp) }
+        episode.runtimeMin?.let { Text("$it min", color = TvColors.TextSecondary, fontSize = 12.sp, maxLines = 1) }
     }
 }
 
