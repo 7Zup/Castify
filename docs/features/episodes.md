@@ -25,9 +25,10 @@ unavailable", the rest of the remote works as before.
 - `Auto next` checkbox, the TV's setting (shared by every phone and the TV).
 
 **TV (T1–T5).**
-- An `Episodes` button after CC in the controls (series only). Panel: season chips, the
-  season's episodes (5 cards in view, `PLAYING` badge), `Auto next`. ▲ ▼ between rows, ◀ ▶
-  inside a row, OK picks the season / plays the episode / ticks Auto next, Back closes.
+- An `Episodes` button after CC in the controls (series only). Panel: the series title with
+  `Auto next` on its right (user), season chips, the season's episodes (4 cards sharing the
+  screen width, `PLAYING` badge). It opens focused on the playing episode. ▲ ▼ between rows,
+  ◀ ▶ inside a row, OK ticks Auto next / picks the season / plays the episode, Back closes.
   Cards show the episode's picture (TVmaze, Coil), the number while it loads or when there is none.
 - `Next episode` bottom right, the last 30 s and at the end, only when the next episode is
   known. OK plays it, Back hides it for this episode. The last episode of a season leads to
