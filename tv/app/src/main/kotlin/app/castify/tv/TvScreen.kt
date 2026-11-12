@@ -339,7 +339,29 @@ private fun EpisodesPanel(series: SeriesInfo, panel: EpisodesPanelState, autoNex
             // TV safe area: nothing near the bottom edge (some TVs crop it).
             .padding(start = 56.dp, end = 56.dp, top = 40.dp, bottom = 56.dp),
     ) {
-        Text(series.showName, color = TvColors.TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(series.showName, color = TvColors.TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            val focused = panel.row == EpisodesRow.AUTO_NEXT
+            Row(
+                Modifier
+                    .scale(if (focused) 1.05f else 1f)
+                    .then(if (focused) Modifier.border(2.dp, TvColors.TextPrimary, RoundedCornerShape(8.dp)) else Modifier)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .size(20.dp)
+                        .border(2.dp, if (autoNext) TvColors.Red else TvColors.TextSecondary, RoundedCornerShape(4.dp))
+                        .background(if (autoNext) TvColors.Red else Color.Transparent, RoundedCornerShape(4.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (autoNext) Text("✓", color = TvColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                }
+                Text("Auto next", color = TvColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp))
+                Text("plays the next one at the end", color = TvColors.TextSecondary, fontSize = 14.sp, modifier = Modifier.padding(start = 12.dp))
+            }
+        }
         if (series.episodes.isEmpty()) {
             Text("Episode list unavailable", color = TvColors.TextSecondary, fontSize = 18.sp, modifier = Modifier.padding(top = 16.dp))
         } else {
@@ -374,27 +396,6 @@ private fun EpisodesPanel(series: SeriesInfo, panel: EpisodesPanelState, autoNex
                     }
                 }
             }
-        }
-        val focused = panel.row == EpisodesRow.AUTO_NEXT
-        Row(
-            Modifier
-                .padding(top = 32.dp)
-                .scale(if (focused) 1.05f else 1f)
-                .then(if (focused) Modifier.border(2.dp, TvColors.TextPrimary, RoundedCornerShape(8.dp)) else Modifier)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier
-                    .size(20.dp)
-                    .border(2.dp, if (autoNext) TvColors.Red else TvColors.TextSecondary, RoundedCornerShape(4.dp))
-                    .background(if (autoNext) TvColors.Red else Color.Transparent, RoundedCornerShape(4.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (autoNext) Text("✓", color = TvColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-            }
-            Text("Auto next", color = TvColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp))
-            Text("plays the next one at the end", color = TvColors.TextSecondary, fontSize = 14.sp, modifier = Modifier.padding(start = 12.dp))
         }
     }
 }

@@ -60,8 +60,11 @@ val CONTROL_BUTTONS = listOf(ControlFocus.BACK_10, ControlFocus.PLAY_PAUSE, Cont
 /** An episode the TV asked the phone for (mockup T5): loading, then failed with Retry / Back. */
 data class EpisodeLoad(val number: EpisodeNumber, val failed: Boolean = false, val focus: ErrorButton = ErrorButton.RETRY)
 
-/** Rows of the Episodes panel (mockup T2), top to bottom. */
-enum class EpisodesRow { SEASONS, EPISODES, AUTO_NEXT }
+/**
+ * Rows of the Episodes panel (mockup T2), top to bottom: Auto next sits right of the series
+ * title (user). The panel opens on the playing episode.
+ */
+enum class EpisodesRow { AUTO_NEXT, SEASONS, EPISODES }
 
 data class EpisodesPanelState(val season: Int, val row: EpisodesRow, val episodeIndex: Int)
 
